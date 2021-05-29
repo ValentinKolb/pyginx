@@ -1,0 +1,63 @@
+
+# [ debug | info | notice | warn | error | crit ]
+error_log  /var/log/{{ server_name }}.nginx.error_log  warn;
+
+events {
+}
+
+http {
+
+    {% if websocket_support %}
+    # Connection Upgrade For Websocket Support
+    map $http_upgrade $connection_upgrade {
+        default upgrade;
+        '' close;
+    }
+    {% endif %}
+
+    # Backend Server
+    upstream backend {
+        {% if load_balancing_algorythm %}
+        {% for server in upstream.servers %}
+        server {{ server.addr }}:{{server.port}};
+        {% endfor %}
+    }
+
+    # HTTP(S) Server
+    server {
+
+        # HTTP Port (will be changed by the nginx plugin)
+        listen 80;
+        listen [::]:80;
+
+        # Domain Of The Service
+        server_name             {{ server_name }}; # todo additional server_names
+
+        # HSTS
+        add_header Strict-Transport-Security "max-age=31536000; includeSubDomains" always;
+
+        # Root Location
+        location / {
+            proxy_pass      http://backend;
+
+            {% if allow_big_files %}
+            client_max_body_size        20G;        # allow big file uploads
+            {% endif %}
+
+            {% if websocket_support %}
+            # Websocket Support
+            proxy_http_version  2; # todo test if version 2 works, else version 1.1 !   # use http version that supports websockets
+            proxy_set_header    X-Real-IP           $remote_addr;                       # change the ip in the forwarded header to be the client ip, not the proxy ip
+            # proxy_set_header  X-Forwarded-For     $proxy_add_x_forwarded_for;         # client gets request ip
+            proxy_set_header    Host                $host;                              # sets host header to the addr of the nginx proxy
+            proxy_set_header    Upgrade             $http_upgrade;                      # upgrades the connection
+            proxy_set_header    Connection          $connection_upgrade;                # ensures the connection is upgraded
+            {% endif %}
+        }
+
+        # Use Newest TLS Version
+        ssl_protocols           TLSv1.3;
+
+
+    }
+}

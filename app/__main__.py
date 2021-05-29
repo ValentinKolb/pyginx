@@ -3,6 +3,8 @@
 import os
 import sys
 import subprocess
+from typing import Any
+
 import validators
 
 from dataclasses import dataclass
@@ -11,6 +13,48 @@ from jinja2 import Environment, FileSystemLoader
 # set up jinja2
 file_loader = FileSystemLoader("./templates")
 jinja_env = Environment(loader=file_loader)
+
+
+@dataclass(frozen=True)
+class LocationType:
+    pass
+
+
+class Root(LocationType):
+    path: str
+
+
+class ProxyPass(LocationType):
+    forward_scheme: str
+    forward_host: str
+    forward_port: str
+
+
+@dataclass(frozen=True)
+class Location:
+    location_path: str
+    location_type: LocationType
+
+    def validate(self) -> bool:
+        return True
+
+
+@dataclass(frozen=True)
+class HTTPServer:
+    http_port: str
+    server_name: list[str]
+    ipv6_support: bool
+    redirect_http_to_https: bool
+
+    type: str = "HTTP_SERVER"
+
+
+class HTTPSServer(HTTPServer):
+    https_port: str
+    enable_HSTS: bool
+    use_http2: bool
+
+    type: str = "HTTPS_SERVER"
 
 
 @dataclass(frozen=True)
@@ -90,6 +134,59 @@ def exit_error(msg: str, exit_code=-1):
     exit(exit_code)
 
 
+def input_with_default(prompt="", default="") -> str:
+    """
+    this functions prompt the user for input and if the user enters nothing the default is used
+
+    Parameters
+    ----------
+    prompt : str
+        will be printed before the input, should contain a message explaining what the default is
+    default : str
+        will returned if the user enters nothing
+
+    Returns
+    -------
+    str :
+        either the input or the default
+    """
+    return _in if (_in := input(prompt)) else default
+
+
+def show_options(options: dict[str, ...], prompt="") -> ...:
+    """
+    displays options for the user to select one
+
+    Parameters
+    ----------
+    options : dict
+        this dict should contain the different options as keys.
+        the should follow the pattern '[letter/word] description'
+    prompt : str
+        will be printed before the options are displayed
+
+    Returns
+    -------
+    ... :
+        the matching value for the selected key
+    """
+    parsed_options = {}
+    for option in options:
+        parsed_options[option[option.find("["): option.find("]")]] = option
+
+    if prompt:
+        print(prompt)
+    for option in options:
+        print(option)
+
+    while True:
+        selection = input("> ")
+        if selection not in parsed_options:
+            print_error("Invalid Selection")
+        else:
+            return options[parsed_options[selection]]
+
+
 # GENERAL HELPER FUNCTIONS
 
 def print_error(msg: str):
@@ -165,18 +262,15 @@ def collect_upstream_data() -> list[Upstream]:
 
     while True:
 
-        upstream_name = input("Enter the name of the upstream.txt (the default is 'backend'): ")
-        if not upstream_name:
-            upstream_name = "backend"
+        upstream_name = input_with_default("Enter the name of the upstream.txt (the default is 'backend'): ", "backend")
 
         # todo load balancing algorithm : https://docs.nginx.com/nginx/admin-guide/load-balancer/http-load-balancer/
 
         upstream_servers: list[UpstreamServer] = []
         while True:
-            server_addr = addr if (
-                addr := input("Enter the server IP oder DNS-name (the default is 'localhost'): ")) else "localhost"
-            server_port = port if (
-                port := input("Enter the port the server is listening on (the default is '80'): ")) else "80"
+            server_addr = input_with_default("Enter the server IP oder DNS-name (the default is 'localhost'): ",
+                                             "localhost")
+            server_port = input_with_default("Enter the port the server is listening on (the default is '80'): ", "80")
 
             server = UpstreamServer(addr=server_addr, port=server_port)
 
@@ -193,6 +287,19 @@ def collect_upstream_data() -> list[Upstream]:
             return upstreams
 
 
+def collect_http_server_data(upstreams: list[Upstream]) -> list[HTTPServer]:
+    servers: list[HTTPServer] = []
+
+    while True:
+        enable_ssl = ask_yes_no("Do you want to enable ssl on this server?")
+        forward_http_to_https = ask_yes_no("Do you want to forward http to https")
+
+        locations: list[Location] = []
+        print("Configuring Locations ...")
+        while True:
+            path = input_with_default("Enter the path of the location (the default is '/'): ", "/")
+
+
 def add_http_stream():
     print("adding http stream")
 
@@ -205,17 +312,17 @@ if __name__ == '__main__':
     # check_root()
     # check_installs()
 
-    display_menu(options={
+    """display_menu(options={
         "a": {"func": add_http_stream, "text": "[a] add new server"},
         "s": {"func": add_tcp_stream, "text": "[s] add new tcp stream"},
         "h": {"func": lambda: print("Not yet implemented!\n"), "text": "[h] display help text"},
         "q": {"func": lambda: exit(0), "text": "[q] quit"}
-    })
+    })"""
 
     ups = collect_upstream_data()
 
     print(ups)
 
-    # template = jinja_env.get_template("upstream.txt")
+    template = jinja_env.get_template("upstream")
 
-    # print(template.render(upstreams=ups))
+    print(template.render(upstreams=ups))

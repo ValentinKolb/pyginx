@@ -1,6 +1,0 @@
-{% for upstream in upstreams %}
-upstream {{ upstream-name }} {
-    test
-}
-
-{% endfor %}
