@@ -19,35 +19,35 @@ class UpstreamServer:
 
 @dataclass(frozen=True)
 class Upstream:
-    name: str
     servers: list[UpstreamServer]
+    name: str = "backend"
     load_balancing_algorithm: str = "# use default Round Robin"
-    comment: str = ""
+    comment: Optional[str] = None
 
 
 @dataclass(frozen=True)
 class ProxyPass:
     upstream: Upstream
-    scheme: str
+    scheme: str = "http"
 
 
 @dataclass(frozen=True)
 class Location:
-    location_path: str
-    proxy_pass: Optional[ProxyPass]
-    root: Optional[str]
-    max_file_size: str
+    proxy_pass: Optional[ProxyPass] = None
+    root: Optional[str] = None
+    max_file_size: str = "1MB"
+    location_path: str = "/"
     comment: str = ""
+    websocket_support: bool = True
 
 
 @dataclass(frozen=True)
 class HTTPServer:
     server_name: str
-    ipv6_support: bool
-    enable_HSTS: bool
     locations: list[Location]
-    enable_ssl: bool = True
-    comment: str = ""
+    ipv6_support: bool = True
+    enable_HSTS: bool = True
+    comment: Optional[str] = None
 
 
 @dataclass(frozen=True)
@@ -59,7 +59,7 @@ class EventBlock:
 class HTTPBlock:
     upstreams: list[Upstream]
     http_servers: list[HTTPServer]
-    websocket_support: bool
+    websocket_support: bool = True
 
 
 @dataclass(frozen=True)

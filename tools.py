@@ -1,7 +1,7 @@
 import os
 import subprocess
 
-from app.user_interface import exit_error, ask_yes_no
+from user_interface import exit_error, ask_yes_no
 
 
 def check_root():

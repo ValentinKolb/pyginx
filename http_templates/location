@@ -1,6 +1,6 @@
         {% for location in http_server.locations %}
         {% if location.comment %}
-        {{ location.comment }}
+        # {{ location.comment }}
         {% endif %}
         location  {{ location.location_path }}  {
             {% if location.proxy_pass %}
@@ -13,7 +13,7 @@
 
             client_max_body_size        {{ location.max_file_size }};        # allow big file uploads eg. 20G
 
-            {% if HTTPTemplate.http.websocket_support %}
+            {% if location.websocket_support %}
             # Websocket Support
             proxy_http_version  1.1;                                                    # use http version that supports websockets
             proxy_set_header    X-Real-IP           $remote_addr;                       # change the ip in the forwarded header to be the client ip, not the proxy ip
