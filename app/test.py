@@ -1,18 +1,10 @@
-import jinja2
-from dataclasses import dataclass
+from jinja2 import FileSystemLoader, Environment
+from data_objects import example_http_template_data
 
-
-@dataclass(frozen=True)
-class Test:
-    text1: str
-    text2: str
-
+file_loader = FileSystemLoader("http_templates")
+jinja_env = Environment(loader=file_loader, lstrip_blocks=True, trim_blocks=True)
 
 if __name__ == '__main__':
-    test_class = Test("das ist ein test", "Das ist auch ein test")
-
-    template = jinja2.Template("""{{ test.text1 }}
-                               
-                               {{ test.text2}}""")
-
-    print(template.render(test=test_class))
+    server_name = input("""Enter the name under which the server should be accessible.
+Separate multiple names with commas. (e.g.: example.com www.example.com)
+? > """)

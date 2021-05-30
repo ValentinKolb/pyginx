@@ -1,0 +1,26 @@
+    {% for http_server in HTTPTemplate.http.http_servers%}
+    {% if http_server.comment %}
+    # {{ http_server.comment }}
+    {% endif %}
+    server {
+
+        listen 80;
+        {% if http_server.ipv6_support %}
+        listen [::]:80;
+        {%  endif %}
+
+        # Domain Of The Service
+        server_name             {{ http_server.server_name }};
+        {% if http_server.enable_HSTS %}
+
+        # HSTS
+        add_header Strict-Transport-Security "max-age=31536000; includeSubDomains" always;
+        {% endif %}
+
+        # Use Newest TLS Version
+        ssl_protocols           TLSv1.3;
+
+        # Locations
+        {% include "location" %}
+    }
+    {% endfor %}

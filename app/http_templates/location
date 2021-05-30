@@ -1,0 +1,26 @@
+        {% for location in http_server.locations %}
+        {% if location.comment %}
+        {{ location.comment }}
+        {% endif %}
+        location  {{ location.location_path }}  {
+            {% if location.proxy_pass %}
+            proxy_pass      {{ location.proxy_pass.scheme }}://{{ location.proxy_pass.upstream.name }};
+            {% elif location.root %}
+            root {{ location.root }};
+            {% else %}
+            try_files $uri $uri/ =404;
+            {% endif %}
+
+            client_max_body_size        {{ location.max_file_size }};        # allow big file uploads eg. 20G
+
+            {% if HTTPTemplate.http.websocket_support %}
+            # Websocket Support
+            proxy_http_version  1.1;                                                    # use http version that supports websockets
+            proxy_set_header    X-Real-IP           $remote_addr;                       # change the ip in the forwarded header to be the client ip, not the proxy ip
+            # proxy_set_header  X-Forwarded-For     $proxy_add_x_forwarded_for;         # client gets request ip
+            proxy_set_header    Host                $host;                              # sets host header to the addr of the nginx proxy
+            proxy_set_header    Upgrade             $http_upgrade;                      # upgrades the connection
+            proxy_set_header    Connection          $connection_upgrade;                # ensures the connection is upgraded
+            {% endif %}
+        }
+        {% endfor %}
