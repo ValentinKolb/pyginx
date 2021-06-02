@@ -3,15 +3,14 @@
         # {{ location.comment }}
         {% endif %}
         location  {{ location.location_path }}  {
-            {% if location.proxy_pass %}
-            proxy_pass      {{ location.proxy_pass.scheme }}://{{ location.proxy_pass.upstream.name }};
-            {% elif location.root %}
-            root {{ location.root }};
+
+            {% if 'ProxyPass' in location.data.__class__.__name__ %}
+            proxy_pass      {{ location.data.scheme }}://{{ location.data.upstream }};
             {% else %}
-            try_files $uri $uri/ =404;
+            {{ location.data }};
             {% endif %}
 
-            client_max_body_size        {{ location.max_file_size }};        # allow big file uploads eg. 20G
+            client_max_body_size        {{ location.max_file_size }};
 
             {% if location.websocket_support %}
             # Websocket Support

@@ -1,6 +1,6 @@
 
 # [ debug | info | notice | warn | error | crit ]
-error_log  /var/log/example.com.nginx.error_log  warn;
+error_log  /var/log/test.nginx.error_log  warn;
 
 events {
 }
@@ -14,8 +14,8 @@ http {
         
     # Upstreams
     upstream backend {
-        # no load balancing method is specified for Round Robin;
-        server localhost:81;
+        # Round Robin;
+        server localhost:80;
     }
 
     # HTTP(S) Servers
@@ -35,17 +35,11 @@ http {
 
         # Locations
         location  /  {
-            proxy_pass      http://;
 
-            client_max_body_size        1MB;        # allow big file uploads eg. 20G
+            proxy_pass      http://backend;
 
-            # Websocket Support
-            proxy_http_version  1.1;                                                    # use http version that supports websockets
-            proxy_set_header    X-Real-IP           $remote_addr;                       # change the ip in the forwarded header to be the client ip, not the proxy ip
-            # proxy_set_header  X-Forwarded-For     $proxy_add_x_forwarded_for;         # client gets request ip
-            proxy_set_header    Host                $host;                              # sets host header to the addr of the nginx proxy
-            proxy_set_header    Upgrade             $http_upgrade;                      # upgrades the connection
-            proxy_set_header    Connection          $connection_upgrade;                # ensures the connection is upgraded
+            client_max_body_size        1MB;
+
         }
     }
 }
