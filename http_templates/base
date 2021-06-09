@@ -1,8 +1,0 @@
-
-# [ debug | info | notice | warn | error | crit ]
-error_log  /var/log/{{ HTTPTemplate.config_name }}.nginx.error_log  warn;
-
-{% include "events" %}
-
-
-{% include "http" %}
