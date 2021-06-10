@@ -9,8 +9,9 @@ Python scripts to automate nginx deployment.
 
 ## Install 
 
-1. clone this repo
-2. run `sh pyginx/install.sh`
+````shell
+curl https://raw.githubusercontent.com/ValentinKolb/pyginx/main/install.sh | sh
+````
 
 ## Usage
 
