@@ -19,7 +19,7 @@ curl https://raw.githubusercontent.com/ValentinKolb/pyginx/main/requirements.txt
 pip3 install -r pyginx_requirements.txt
 rm pyginx_requirements.txt
 
-echo "Installing pyginx ...
+echo "Installing pyginx ..."
 curl https://raw.githubusercontent.com/ValentinKolb/pyginx/main/pyginx > pyginx
 sudo mv pyginx /usr/local/bin/
 sudo chmod +x /usr/local/bin/pyginx
