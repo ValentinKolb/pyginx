@@ -5,12 +5,12 @@
   \___/   |_|   |__/|___/ ............
 ```
 
-Python scripts to automate nginx deployment.
+Python scripts to automate nginx virtual server and stream deployment.
 
 ## Install 
 
 ````shell
-curl https://raw.githubusercontent.com/ValentinKolb/pyginx/main/install.sh | sh
+curl https://raw.githubusercontent.com/ValentinKolb/pyginx/main/install.sh | bash
 ````
 
 ## Usage
