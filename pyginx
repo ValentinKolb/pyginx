@@ -192,7 +192,7 @@ if os.path.isfile(path):
         exit(2)
 
 # write to config file
-with open(path, "w") as file:
+with open(path, "w+") as file:
     file.write(rendered_template)
 
 # run certbot accordingly
