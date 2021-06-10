@@ -16,7 +16,7 @@ sudo apt install python3-pip -y
 
 echo "Installing requirements.txt ..."
 curl https://raw.githubusercontent.com/ValentinKolb/pyginx/main/requirements.txt > pyginx_requirements.txt
-pip3 install -r pyginx_requirements.txt
+sudo pip3 install -r pyginx_requirements.txt
 rm pyginx_requirements.txt
 
 echo "Installing pyginx ..."
