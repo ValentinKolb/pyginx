@@ -133,7 +133,7 @@ http_parser_required.add_argument('-d', '--Domain',
                                   required=True)
 http_parser_required.add_argument('--Upstream', '-u',
                                   metavar="",
-                                  action="extend",
+                                  action="append",
                                   nargs="+",
                                   type=upstream,
                                   help='the upstream and port where the connection is forwarded to. '
@@ -152,7 +152,7 @@ stream_parser = subparsers.add_parser('stream', help='creates a config file for 
 stream_parser_required = stream_parser.add_argument_group("required")
 stream_parser_required.add_argument('--Upstream', '-u',
                                     metavar="",
-                                    action="extend",
+                                    action="append",
                                     nargs="+",
                                     type=upstream,
                                     help='the upstream and port where the connection is forwarded to. '
