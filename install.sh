@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 
-# This script first installs all dependencies of pyginx and then pyginxt
+# This script first installs all dependencies of pyginx and then pyginx
 # Author:  Valentin Kolb
 # Version: 1.5
 # License: MIT

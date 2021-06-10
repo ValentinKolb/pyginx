@@ -108,110 +108,109 @@ def upstream(u: str):
     return u
 
 
-if __name__ == '__main__':
 
-    if not os.geteuid() == 0:
-        print("You must run this script as root", file=sys.stderr)
-        exit(1)
+if not os.geteuid() == 0:
+    print("You must run this script as root", file=sys.stderr)
+    exit(1)
 
-    # create the top-level parser
-    parser = argparse.ArgumentParser(
-        prog='pyginx',
-        description='Python script to automate nginx virtual server and stream deployment.'
+# create the top-level parser
+parser = argparse.ArgumentParser(
+    prog='pyginx',
+    description='Python script to automate nginx virtual server and stream deployment.'
+)
+parser.add_argument('--version', action='version', version='%(prog)s 1.0')
+subparsers = parser.add_subparsers(help="run 'pyginx <command> -h' for more info", required=True, dest="usage")
+
+# create the parser for the "http" command
+http_parser = subparsers.add_parser('http', help='creates a new config file for an http virtual server')
+
+# required http arguments
+http_parser_required = http_parser.add_argument_group("required")
+http_parser_required.add_argument('-d', '--Domain',
+                                  metavar="",
+                                  type=domain,
+                                  help='help for bar, positional',
+                                  required=True)
+http_parser_required.add_argument('--Upstream', '-u',
+                                  metavar="",
+                                  action="extend",
+                                  nargs="+",
+                                  type=upstream,
+                                  help='the upstream and port where the connection is forwarded to. '
+                                       'format: <domain/ip>:<port>',
+                                  required=True)
+
+# optional http arguments
+http_parser.add_argument("--no-ssl",
+                         action="store_false",
+                         default=True,
+                         help="don't automatically run certbot to request a ssl certificate and enable https")
+
+# create the parser for the "stream" command
+stream_parser = subparsers.add_parser('stream', help='creates a config file for an tcp stream')
+# required stream arguments
+stream_parser_required = stream_parser.add_argument_group("required")
+stream_parser_required.add_argument('--Upstream', '-u',
+                                    metavar="",
+                                    action="extend",
+                                    nargs="+",
+                                    type=upstream,
+                                    help='the upstream and port where the connection is forwarded to. '
+                                         'format: <domain/ip>:<port>',
+                                    required=True)
+stream_parser_required.add_argument('--Port', '-p',
+                                    metavar="",
+                                    type=port,
+                                    help='the port that should be forwarded',
+                                    required=True)
+
+args = parser.parse_args()
+
+filename = rendered_template = ""
+
+if args.usage == "http":
+    filename = f"{args.Domain}.conf"
+    rendered_template = jinja_env.from_string(http_template).render(
+        domain=args.Domain,
+        upstreams=args.Upstream
     )
-    parser.add_argument('--version', action='version', version='%(prog)s 1.0')
-    subparsers = parser.add_subparsers(help="run 'pyginx <command> -h' for more info", required=True, dest="usage")
 
-    # create the parser for the "http" command
-    http_parser = subparsers.add_parser('http', help='creates a new config file for an http virtual server')
+elif args.usage == "stream":
+    filename = f"{args.Port}.conf"
+    rendered_template = jinja_env.from_string(stream_template).render(
+        prot=args.Port,
+        upstreams=args.Upstream
+    )
+else:
+    exit(-1)
 
-    # required http arguments
-    http_parser_required = http_parser.add_argument_group("required")
-    http_parser_required.add_argument('-d', '--Domain',
-                                      metavar="",
-                                      type=domain,
-                                      help='help for bar, positional',
-                                      required=True)
-    http_parser_required.add_argument('--Upstream', '-u',
-                                      metavar="",
-                                      action="extend",
-                                      nargs="+",
-                                      type=upstream,
-                                      help='the upstream and port where the connection is forwarded to. '
-                                           'format: <domain/ip>:<port>',
-                                      required=True)
+path = f"/etc/nginx/conf.d/http/{filename}"
+if os.path.isfile(path):
+    if not "y" == input(
+            f"The file {filename} already exists,"
+            f" do you want to override it? [y/n] : ").strip().lower():
+        exit(2)
 
-    # optional http arguments
-    http_parser.add_argument("--no-ssl",
-                             action="store_false",
-                             default=True,
-                             help="don't automatically run certbot to request a ssl certificate and enable https")
+# write to config file
+with open(path, "w") as file:
+    file.write(rendered_template)
 
-    # create the parser for the "stream" command
-    stream_parser = subparsers.add_parser('stream', help='creates a config file for an tcp stream')
-    # required stream arguments
-    stream_parser_required = stream_parser.add_argument_group("required")
-    stream_parser_required.add_argument('--Upstream', '-u',
-                                        metavar="",
-                                        action="extend",
-                                        nargs="+",
-                                        type=upstream,
-                                        help='the upstream and port where the connection is forwarded to. '
-                                             'format: <domain/ip>:<port>',
-                                        required=True)
-    stream_parser_required.add_argument('--Port', '-p',
-                                        metavar="",
-                                        type=port,
-                                        help='the port that should be forwarded',
-                                        required=True)
+# run certbot accordingly
+if args.usage == "http" and not args.no_ssl:
+    return_code = subprocess.call(["sudo", "certbot", "--nginx", "-d", args.Domain])
+    if return_code != 0:
+        exit(return_code)
 
-    args = parser.parse_args()
+print("The configfile was generated.")
+print("After that the file will be automatically opened in 'nano' for further adjustments.")
+input("Press ENTER to continue.")
 
-    filename = rendered_template = ""
+subprocess.call(["sudo", "nano", path])
+if 0 != subprocess.call(["sudo", "nginx", "-t"]):
+    print(f"The config file contains invalid syntax. Location of the file : {path}", file=sys.stderr)
+    print("To reload nginx after the fix run 'sudo systemctl reload nginx'")
+    exit(3)
 
-    if args.usage == "http":
-        filename = f"{args.Domain}.conf"
-        rendered_template = jinja_env.from_string(http_template).render(
-            domain=args.Domain,
-            upstreams=args.Upstream
-        )
-
-    elif args.usage == "stream":
-        filename = f"{args.Port}.conf"
-        rendered_template = jinja_env.from_string(stream_template).render(
-            prot=args.Port,
-            upstreams=args.Upstream
-        )
-    else:
-        exit(-1)
-
-    path = f"/etc/nginx/conf.d/http/{filename}"
-    if os.path.isfile(path):
-        if not "y" == input(
-                f"The file {filename} already exists,"
-                f" do you want to override it? [y/n] : ").strip().lower():
-            exit(2)
-
-    # write to config file
-    with open(path, "w") as file:
-        file.write(rendered_template)
-
-    # run certbot accordingly
-    if args.usage == "http" and not args.no_ssl:
-        return_code = subprocess.call(["sudo", "certbot", "--nginx", "-d", args.Domain])
-        if return_code != 0:
-            exit(return_code)
-
-    print("The configfile was generated.")
-    print("After that the file will be automatically opened in 'nano' for further adjustments.")
-    input("Press ENTER to continue.")
-
-    subprocess.call(["sudo", "nano", path])
-    if 0 != subprocess.call(["sudo", "nginx", "-t"]):
-        print(f"The config file contains invalid syntax. Location of the file : {path}", file=sys.stderr)
-        print("To reload nginx after the fix run 'sudo systemctl reload nginx'")
-        exit(3)
-
-    subprocess.call(["sudo", "systemctl", "reload", "nginx"])
-    print("Configuration successfully deployed!")
-    print(f"Config file: {path}")
+subprocess.call(["sudo", "systemctl", "reload", "nginx"])
+print("Configuration successfully deployed!")
+print(f"Config file: {path}")
