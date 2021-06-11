@@ -25,12 +25,12 @@ rm pyginx_requirements.txt
 
 echo "Downloading config files ..."
 sudo mkdir /etc/pyginx.d
-sudo curl -o /etc/pyginx.d https://raw.githubusercontent.com/ValentinKolb/pyginx/main/pyginx.d/http.templ
-sudo curl -o /etc/pyginx.d https://raw.githubusercontent.com/ValentinKolb/pyginx/main/pyginx.d/stream.templ
-sudo curl -o /etc/pyginx.d https://raw.githubusercontent.com/ValentinKolb/pyginx/main/pyginx.d/pyginx.ini
+sudo curl -o /etc/pyginx.d/http.templ https://raw.githubusercontent.com/ValentinKolb/pyginx/main/pyginx.d/http.templ
+sudo curl -o /etc/pyginx.d/stream.templ https://raw.githubusercontent.com/ValentinKolb/pyginx/main/pyginx.d/stream.templ
+sudo curl -o /etc/pyginx.d/pyginx.ini https://raw.githubusercontent.com/ValentinKolb/pyginx/main/pyginx.d/pyginx.ini
 
 echo "Installing pyginx ..."
-sudo curl -o /usr/local/bin/ https://raw.githubusercontent.com/ValentinKolb/pyginx/main/pyginx
+sudo curl -o /usr/local/bin/pyginx https://raw.githubusercontent.com/ValentinKolb/pyginx/main/pyginx
 sudo chmod +x /usr/local/bin/pyginx
 
 echo "... complete ! run 'sudo pyginx -h' to get started"

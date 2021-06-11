@@ -102,7 +102,7 @@ argument_parser = argparse.ArgumentParser(
     description='Python script to automate nginx virtual server and stream deployment.'
 )
 argument_parser.add_argument('--version', action='version', version='%(prog)s 1.0')
-argument_parser.add_argument('--config-file', metavar="", type=str, default="/ect/pyginx.d/pyginx.conf",
+argument_parser.add_argument('--config-file', metavar="", type=str, default="/ect/pyginx.d/pyginx.ini",
                              help="The path of the pyginx config file.")
 
 subparsers = argument_parser.add_subparsers(help="run 'pyginx <command> -h' for more info", required=True, dest="usage")
@@ -162,9 +162,9 @@ print(args)
 
 # parse the config file
 config_file_parser.read(args.config_file)
-config_template_dir: str = str(config_file_parser["Templates"]["template-dir"])
-config_http_template: str = str(config_file_parser["Templates"]["http-template"])
-config_stream_template: str = str(config_file_parser["Templates"]["stream-template"])
+config_template_dir: str = str(config_file_parser["templates"]["template-dir"])
+config_http_template: str = str(config_file_parser["templates"]["http-template"])
+config_stream_template: str = str(config_file_parser["templates"]["stream-template"])
 config_nginx_http_dir: str = str(config_file_parser["nginx"]["http-config-dir"])
 config_nginx_stream_dir: str = str(config_file_parser["nginx"]["stream-config-dir"])
 
