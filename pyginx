@@ -11,7 +11,6 @@ from jinja2 import FileSystemLoader, Environment
 
 # creating parser for config file
 from configparser import ConfigParser, ExtendedInterpolation
-
 config_file_parser = ConfigParser(interpolation=ExtendedInterpolation())
 
 
@@ -102,7 +101,7 @@ argument_parser = argparse.ArgumentParser(
     description='Python script to automate nginx virtual server and stream deployment.'
 )
 argument_parser.add_argument('--version', action='version', version='%(prog)s 1.0')
-argument_parser.add_argument('--config-file', metavar="", type=str, default="/ect/pyginx.d/pyginx.ini",
+argument_parser.add_argument('--config-file', metavar="", type=str, default="/etc/pyginx.d/pyginx.ini",
                              help="The path of the pyginx config file.")
 
 subparsers = argument_parser.add_subparsers(help="run 'pyginx <command> -h' for more info", required=True, dest="usage")
@@ -179,7 +178,6 @@ jinja_env = Environment(loader=FileSystemLoader(config_template_dir),
 filename = rendered_template = path = ""
 
 if args.usage == "http":
-
     print(f'Creating config for: '
           f'{"http://" if args.no_ssl else "https://"}{args.domain} -> ( {" | ".join(args.upstreams)} )')
 
@@ -191,6 +189,9 @@ if args.usage == "http":
     )
 
 elif args.usage == "stream":
+    print(f'Creating config for: '
+          f'0.0.0.0:{args.port} -> ( {" | ".join(args.upstreams)} )')
+
     filename = f"{args.port}.conf"
     path = f"{config_nginx_stream_dir}/{filename}"
     rendered_template = jinja_env.get_template(config_stream_template).render(
@@ -207,6 +208,7 @@ if os.path.isfile(path):
         exit(2)
 
 # write to config file
+print(f"Saving config file to {path!r}")
 with open(path, "w+") as file:
     file.write(rendered_template)
 
@@ -216,8 +218,8 @@ if args.usage == "http" and not args.no_ssl:
     if return_code != 0:
         exit(return_code)
 
-print("The configfile was generated.")
-print("After that the file will be automatically opened in 'nano' for further adjustments.")
+print("The config file was generated.")
+print("The file will be automatically opened in 'nano' for further adjustments.")
 input("Press ENTER to continue.")
 
 subprocess.call(["sudo", "nano", path])
