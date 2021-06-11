@@ -8,6 +8,9 @@
 set -e
 set -o pipefail
 
+# move to home dir
+cd
+
 # initial cleanup
 if [ -e "/etc/pyginx.d" ];then sudo rm -rf "/etc/pyginx.d" ; fi
 if [ -e "/usr/local/bin/pyginx" ];then sudo rm "/usr/local/bin/pyginx" ; fi
