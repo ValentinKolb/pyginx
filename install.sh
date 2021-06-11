@@ -9,8 +9,8 @@ set -e
 set -o pipefail
 
 # initial cleanup
-if [ -e "/etc/pyginx.d" ];then rm -rf "/etc/pyginx.d" ; fi
-if [ -e "/usr/local/bin/pyginx" ];then rm "/usr/local/bin/pyginx" ; fi
+if [ -e "/etc/pyginx.d" ];then sudo rm -rf "/etc/pyginx.d" ; fi
+if [ -e "/usr/local/bin/pyginx" ];then sudo rm "/usr/local/bin/pyginx" ; fi
 
 echo "Installing pyginx ..."
 
