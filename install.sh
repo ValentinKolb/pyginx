@@ -35,6 +35,9 @@ sudo curl -o /etc/pyginx.d/pyginx.ini https://raw.githubusercontent.com/Valentin
 echo "Installing pyginx ..."
 sudo curl -o /usr/local/bin/pyginx https://raw.githubusercontent.com/ValentinKolb/pyginx/main/pyginx
 sudo chmod +x /usr/local/bin/pyginx
+echo "... install complete"
+echo "Version:"
+sudo pyginx --version
+echo "Run 'sudo pyginx -h' to get started."
 
-echo "... complete ! run 'sudo pyginx -h' to get started"
 exit 0

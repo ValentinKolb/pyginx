@@ -13,6 +13,8 @@ from jinja2 import FileSystemLoader, Environment
 from configparser import ConfigParser, ExtendedInterpolation
 config_file_parser = ConfigParser(interpolation=ExtendedInterpolation())
 
+VERSION = '1.7'
+
 
 def domain(d: str) -> str:
     """
@@ -100,7 +102,7 @@ argument_parser = argparse.ArgumentParser(
     prog='pyginx',
     description='Python script to automate nginx virtual server and stream deployment.'
 )
-argument_parser.add_argument('--version', action='version', version='%(prog)s 1.6')
+argument_parser.add_argument('--version', action='version', version=f'%(prog)s {VERSION}')
 argument_parser.add_argument('--config-file', metavar="", type=str, default="/etc/pyginx.d/pyginx.ini",
                              help="The path of the pyginx config file.")
 
