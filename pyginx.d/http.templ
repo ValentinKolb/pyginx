@@ -1,20 +1,18 @@
 # [ debug | info | notice | warn | error | crit ]
 error_log  /var/log/{{ domain }}.nginx.error_log  warn;
 
-http {
-    upstream backend {
-        {% for upstream in upstreams %}
-        server {{ upstream }};
-        {% endfor %}
-    }
+upstream backend_{{ domain }} {
+    {% for upstream in upstreams %}
+    server {{ upstream }};
+    {% endfor %}
+}
 
-    server {
-        server_name {{ domain }};
-        listen      80;
-        listen      [::]:80;
+server {
+    server_name {{ domain }};
+    listen      80;
+    listen      [::]:80;
 
-        location / {
-            proxy_pass http://backend;
-        }
+    location / {
+        proxy_pass http://backend_{{ domain }};
     }
 }
