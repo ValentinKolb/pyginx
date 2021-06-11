@@ -105,7 +105,11 @@ sudo pyginx --help
 | `--config-file`   | after this flag a custom config file can be specified. the default config file in located here: `/etc/pyginx.d/pyginx.ini` |
 
 
+### Coming Feature
 
+* specify forward scheme for http backend
+* specify backend name
+* specify load balancing algorithm for backend
 
 
 
