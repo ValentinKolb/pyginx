@@ -7,49 +7,12 @@ import subprocess
 
 # remote dependencies
 import validators
-from jinja2 import BaseLoader, Environment
+from jinja2 import FileSystemLoader, Environment
 
-# set up templating engine environment
-jinja_env = Environment(loader=BaseLoader(),
-                        lstrip_blocks=True,
-                        trim_blocks=True)
+# creating parser for config file
+from configparser import ConfigParser, ExtendedInterpolation
 
-http_template = """# [ debug | info | notice | warn | error | crit ]
-error_log  /var/log/{{ domain }}.nginx.error_log  warn;
-
-http {
-    upstream backend {
-        {% for upstream in upstreams %}
-        server {{ upstream }};
-        {% endfor %}
-    }
-
-    server {
-        server_name {{ domain }};
-        listen      80;
-        listen      [::]:80;
-
-        location / {
-            proxy_pass http://backend;
-        }
-    }
-}
-"""
-
-stream_template = """# [ debug | info | notice | warn | error | crit ]
-error_log  /var/log/stream_{{ port }}.nginx.error_log  warn;
-stream {
-    upstream backend {
-        {% for upstream in upstreams %}
-        server {{ upstream }};
-        {% endfor %}
-    }
-    server {
-          listen        {{ port }};
-          proxy_pass    upstream; 
-     }
-}
-"""
+config_file_parser = ConfigParser(interpolation=ExtendedInterpolation())
 
 
 def domain(d: str) -> str:
@@ -60,6 +23,12 @@ def domain(d: str) -> str:
     ----------
     d : str
         the string to be validated
+
+     Raises
+    ------
+    argparse.ArgumentTypeError
+        will be raised if the validation fails
+
 
     Returns
     -------
@@ -83,6 +52,11 @@ def port(p: str) -> str:
     p : str
         will be check
 
+     Raises
+    ------
+    argparse.ArgumentTypeError
+        will be raised if the validation fails
+
     Returns
     -------
     str :
@@ -101,6 +75,16 @@ def upstream(u: str):
     ----------
     u : str
         will be validated
+
+    Raises
+    ------
+    argparse.ArgumentTypeError
+        will be raised if the validation fails
+
+    Returns
+    -------
+    str :
+        the validated upstream will be returned
     """
     d, p = u.split(":", 1)
     domain(d)
@@ -108,83 +92,114 @@ def upstream(u: str):
     return u
 
 
-
 if not os.geteuid() == 0:
     print("You must run this script as root", file=sys.stderr)
     exit(1)
 
 # create the top-level parser
-parser = argparse.ArgumentParser(
+argument_parser = argparse.ArgumentParser(
     prog='pyginx',
     description='Python script to automate nginx virtual server and stream deployment.'
 )
-parser.add_argument('--version', action='version', version='%(prog)s 1.0')
-subparsers = parser.add_subparsers(help="run 'pyginx <command> -h' for more info", required=True, dest="usage")
+argument_parser.add_argument('--version', action='version', version='%(prog)s 1.0')
+argument_parser.add_argument('--config-file', metavar="", type=str, default="/ect/pyginx.d/pyginx.conf",
+                             help="The path of the pyginx config file.")
+
+subparsers = argument_parser.add_subparsers(help="run 'pyginx <command> -h' for more info", required=True, dest="usage")
 
 # create the parser for the "http" command
-http_parser = subparsers.add_parser('http', help='creates a new config file for an http virtual server')
+http_parser = subparsers.add_parser('http', help='Run this command to create a new '
+                                                 'config file for an http virtual server')
 
 # required http arguments
 http_parser_required = http_parser.add_argument_group("required")
-http_parser_required.add_argument('-d', '--Domain',
+http_parser_required.add_argument('-d', '--domain',
                                   metavar="",
                                   type=domain,
-                                  help='help for bar, positional',
+                                  help='The domain under which the service is reachable.'
+                                       ' This must be a fully qualified domain name. (e.g. example.com)',
                                   required=True)
-http_parser_required.add_argument('--Upstream', '-u',
+http_parser_required.add_argument('--upstreams', '-u',
                                   metavar="",
-                                  action="append",
                                   nargs="+",
                                   type=upstream,
-                                  help='the upstream and port where the connection is forwarded to. '
-                                       'format: <domain/ip>:<port>',
+                                  help='The upstream and port where the connection is forwarded to. '
+                                       'Separate multiple upstreams by spaces. '
+                                       'Format: <domain/ip>:<port>',
                                   required=True)
 
 # optional http arguments
 http_parser.add_argument("--no-ssl",
-                         action="store_false",
-                         default=True,
-                         help="don't automatically run certbot to request a ssl certificate and enable https")
+                         action="store_true",
+                         default=False,
+                         help="Disable SSL: prevent to automatically run certbot "
+                              "to request a ssl certificate and enable https")
 
 # create the parser for the "stream" command
-stream_parser = subparsers.add_parser('stream', help='creates a config file for an tcp stream')
+stream_parser = subparsers.add_parser('stream', help='Created a new config file for a '
+                                                     'tcp stream (i.e port-forwarding). '
+                                                     'For this the port on this server must '
+                                                     'be exposed by the firewall')
 # required stream arguments
 stream_parser_required = stream_parser.add_argument_group("required")
-stream_parser_required.add_argument('--Upstream', '-u',
+stream_parser_required.add_argument('--upstreams', '-u',
                                     metavar="",
-                                    action="append",
                                     nargs="+",
                                     type=upstream,
-                                    help='the upstream and port where the connection is forwarded to. '
-                                         'format: <domain/ip>:<port>',
+                                    help='The upstream and port where the connection is forwarded to. '
+                                         'Separate multiple upstreams by spaces. '
+                                         'Format: <domain/ip>:<port>',
                                     required=True)
-stream_parser_required.add_argument('--Port', '-p',
+stream_parser_required.add_argument('--port', '-p',
                                     metavar="",
                                     type=port,
-                                    help='the port that should be forwarded',
+                                    help='The port that to be forwarded.',
                                     required=True)
 
-args = parser.parse_args()
+# parse command line arguments
+args = argument_parser.parse_args()
+print(args)
 
-filename = rendered_template = ""
+# parse the config file
+config_file_parser.read(args.config_file)
+config_template_dir: str = str(config_file_parser["Templates"]["template-dir"])
+config_http_template: str = str(config_file_parser["Templates"]["http-template"])
+config_stream_template: str = str(config_file_parser["Templates"]["stream-template"])
+config_nginx_http_dir: str = str(config_file_parser["nginx"]["http-config-dir"])
+config_nginx_stream_dir: str = str(config_file_parser["nginx"]["stream-config-dir"])
+
+print()
+
+# set up templating engine environment
+jinja_env = Environment(loader=FileSystemLoader(config_template_dir),
+                        lstrip_blocks=True,
+                        trim_blocks=True)
+
+# initialise variables
+filename = rendered_template = path = ""
 
 if args.usage == "http":
-    filename = f"{args.Domain}.conf"
-    rendered_template = jinja_env.from_string(http_template).render(
-        domain=args.Domain,
-        upstreams=args.Upstream
+
+    print(f'Creating config for: '
+          f'{"http://" if args.no_ssl else "https://"}{args.domain} -> ( {" | ".join(args.upstreams)} )')
+
+    filename = f"{args.domain}.conf"
+    path = f"{config_nginx_http_dir}/{filename}"
+    rendered_template = jinja_env.get_template(config_http_template).render(
+        domain=args.domain,
+        upstreams=args.upstreams
     )
 
 elif args.usage == "stream":
-    filename = f"{args.Port}.conf"
-    rendered_template = jinja_env.from_string(stream_template).render(
-        prot=args.Port,
-        upstreams=args.Upstream
+    filename = f"{args.port}.conf"
+    path = f"{config_nginx_stream_dir}/{filename}"
+    rendered_template = jinja_env.get_template(config_stream_template).render(
+        port=args.port,
+        upstreams=args.upstreams
     )
 else:
     exit(-1)
 
-path = f"/etc/nginx/conf.d/http/{filename}"
 if os.path.isfile(path):
     if not "y" == input(
             f"The file {filename} already exists,"
@@ -197,7 +212,7 @@ with open(path, "w+") as file:
 
 # run certbot accordingly
 if args.usage == "http" and not args.no_ssl:
-    return_code = subprocess.call(["sudo", "certbot", "--nginx", "-d", args.Domain])
+    return_code = subprocess.call(["sudo", "certbot", "--nginx", "-d", args.domain])
     if return_code != 0:
         exit(return_code)
 
