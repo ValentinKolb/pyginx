@@ -4,6 +4,7 @@ import argparse
 import os
 import sys
 import subprocess
+import re
 
 # remote dependencies
 import validators
@@ -11,6 +12,7 @@ from jinja2 import FileSystemLoader, Environment
 
 # creating parser for config file
 from configparser import ConfigParser, ExtendedInterpolation
+
 config_file_parser = ConfigParser(interpolation=ExtendedInterpolation())
 
 VERSION = '1.7'
@@ -93,6 +95,64 @@ def upstream(u: str):
     return u
 
 
+def backend_name(b: str):
+    """
+    validates a name for a backend
+
+    a backend name can only contain letters and underscores
+
+    Parameters
+    ----------
+    b : str
+        will be validated
+
+    Raises
+    ------
+    argparse.ArgumentTypeError
+        will be raised if the validation fails
+
+    Returns
+    -------
+    str :
+        the validated backend_name will be returned
+
+    """
+    if b is None:
+        return None
+    b = b.strip()
+    pattern = r'^[a-zA-z0-9_]+$'
+    if re.match(pattern, b):
+        return b
+    raise argparse.ArgumentTypeError(f'{b}: str can only contain letters, number and underscores')
+
+
+def http_scheme(s: str):
+    """
+    validates a forward scheme
+
+    must be either 'http' or 'https'
+
+    Parameters
+    ----------
+    s : str
+        will be validated
+
+    Raises
+    ------
+    argparse.ArgumentTypeError
+        will be raised if the validation fails
+
+    Returns
+    -------
+    str :
+        the validated forward_scheme will be returned
+    """
+    s = s.strip()
+    if s in ('http', 'https'):
+        return s
+    raise argparse.ArgumentTypeError(f'{s}: must be either http or https')
+
+
 if not os.geteuid() == 0:
     print("You must run this script as root", file=sys.stderr)
     exit(1)
@@ -105,6 +165,22 @@ argument_parser = argparse.ArgumentParser(
 argument_parser.add_argument('--version', action='version', version=f'%(prog)s {VERSION}')
 argument_parser.add_argument('--config-file', metavar="", type=str, default="/etc/pyginx.d/pyginx.ini",
                              help="The path of the pyginx config file.")
+
+argument_parser.add_argument('--label', metavar="", type=str, default=None,
+                             help="This label is used for the filename of the configuration and log "
+                                  "file and for the name of the backend. "
+                                  "The default value is the domain for 'http' and the public port for 'stream'")
+
+# option for verbose and quiet output
+verbose_quiet_group = argument_parser.add_mutually_exclusive_group()
+verbose_quiet_group.add_argument("--verbose",
+                                 action="store_true",
+                                 default=False,
+                                 help="Verbose output.")
+verbose_quiet_group.add_argument("--quiet",
+                                 action="store_true",
+                                 default=False,
+                                 help="Minimal output.")
 
 subparsers = argument_parser.add_subparsers(help="run 'pyginx <command> -h' for more info", required=True, dest="usage")
 
@@ -130,6 +206,18 @@ http_parser_required.add_argument('--upstreams', '-u',
                                   required=True)
 
 # optional http arguments
+http_parser.add_argument('--backendName', '-b',
+                         metavar="",
+                         type=backend_name,
+                         help="The name of the backend. The default value is 'backend_<label/domain>",
+                         default=None,
+                         required=False)
+http_parser.add_argument('--forwardScheme',
+                         metavar="",
+                         type=http_scheme,
+                         help="The forward scheme for the backend. Must be 'http' (default) or 'https'",
+                         default="http",
+                         required=False)
 http_parser.add_argument("--no-ssl",
                          action="store_true",
                          default=False,
@@ -157,9 +245,24 @@ stream_parser_required.add_argument('--port', '-p',
                                     help='The port that to be forwarded.',
                                     required=True)
 
+# optional stream arguments
+stream_parser.add_argument('--backendName', '-b',
+                           metavar="",
+                           type=backend_name,
+                           help="The name of the backend. The default value is 'backend_<label/port>",
+                           default=None,
+                           required=False)
+
 # parse command line arguments
 args = argument_parser.parse_args()
-print(args)
+
+# output level
+verbose: bool = args.verbose
+quiet: bool = args.quiet
+
+if verbose:
+    print("Run with arguments: ")
+    print('\n'.join(f'{k}={v}' for k, v in vars(args).items()))
 
 # parse the config file
 config_file_parser.read(args.config_file)
@@ -168,8 +271,6 @@ config_http_template: str = str(config_file_parser["templates"]["http-template"]
 config_stream_template: str = str(config_file_parser["templates"]["stream-template"])
 config_nginx_http_dir: str = str(config_file_parser["nginx"]["http-config-dir"])
 config_nginx_stream_dir: str = str(config_file_parser["nginx"]["stream-config-dir"])
-
-print()
 
 # set up templating engine environment
 jinja_env = Environment(loader=FileSystemLoader(config_template_dir),
@@ -180,25 +281,34 @@ jinja_env = Environment(loader=FileSystemLoader(config_template_dir),
 filename = rendered_template = path = ""
 
 if args.usage == "http":
-    print(f'Creating config for: '
-          f'{"http://" if args.no_ssl else "https://"}{args.domain} -> ( {" | ".join(args.upstreams)} )')
+    if not quiet:
+        print(f'Creating config for: '
+              f'{"http://" if args.no_ssl else "https://"}{args.domain} -> ( {" | ".join(args.upstreams)} )')
 
-    filename = f"{args.domain}.conf"
+    filename = f"{args.label}.conf" if args.label else f"{args.domain}.conf"
     path = f"{config_nginx_http_dir}/{filename}"
+    label = f'{args.label if args.label else args.domain}'.strip()
     rendered_template = jinja_env.get_template(config_http_template).render(
         domain=args.domain,
-        upstreams=args.upstreams
+        upstreams=args.upstreams,
+        label=label,
+        backend_name=args.backendName if args.backendName else f'backend_{label}',
+        forward_scheme=args.forwardScheme
     )
 
 elif args.usage == "stream":
-    print(f'Creating config for: '
-          f'0.0.0.0:{args.port} -> ( {" | ".join(args.upstreams)} )')
+    if not quiet:
+        print(f'Creating config for: '
+              f'0.0.0.0:{args.port} -> ( {" | ".join(args.upstreams)} )')
 
-    filename = f"{args.port}.conf"
+    filename = f"{args.label}.conf" if args.label else f"{args.port}.conf"
     path = f"{config_nginx_stream_dir}/{filename}"
+    label = f'{args.label if args.label else args.port}'.strip()
     rendered_template = jinja_env.get_template(config_stream_template).render(
         port=args.port,
-        upstreams=args.upstreams
+        upstreams=args.upstreams,
+        label=label,
+        backend_name=args.backendName if args.backendName else f'backend_{label}'
     )
 else:
     exit(-1)
@@ -210,7 +320,8 @@ if os.path.isfile(path):
         exit(2)
 
 # write to config file
-print(f"Saving config file to {path!r}")
+if not quiet:
+    print(f"Saving config file to {path!r}")
 with open(path, "w+") as file:
     file.write(rendered_template)
 
@@ -220,8 +331,9 @@ if args.usage == "http" and not args.no_ssl:
     if return_code != 0:
         exit(return_code)
 
-print("The config file was generated.")
-print("The file will be automatically opened in 'nano' for further adjustments.")
+if not quiet:
+    print("The config file was generated.")
+    print("The file will be automatically opened in 'nano' for further adjustments.")
 input("Press ENTER to continue.")
 
 subprocess.call(["sudo", "nano", path])

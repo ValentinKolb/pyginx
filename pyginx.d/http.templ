@@ -1,7 +1,7 @@
 # [ debug | info | notice | warn | error | crit ]
-error_log  /var/log/{{ domain }}.nginx.error_log  warn;
+error_log  /var/log/{{ label }}.nginx.error_log  warn;
 
-upstream backend_{{ domain }} {
+upstream {{ backend_name }} {
     {% for upstream in upstreams %}
     server {{ upstream }};
     {% endfor %}
@@ -13,6 +13,6 @@ server {
     listen      [::]:80;
 
     location / {
-        proxy_pass http://backend_{{ domain }};
+        proxy_pass {{ forward_scheme }}://{{ backend_name }};
     }
 }
