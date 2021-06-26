@@ -58,7 +58,7 @@ $ sudo python3 pyginx --help
 
 For this script to work, your nginx instance must be configured in a specific way.
 
-todo!
+See [here](https://github.com/ValentinKolb/nginx.conf) for more information.
 
 ## Usage
 
