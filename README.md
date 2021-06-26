@@ -9,7 +9,7 @@
 
 [![made-with-python](https://img.shields.io/badge/Made%20with-Python-1f425f.svg)](https://www.python.org/) [![made-with-bash](https://img.shields.io/badge/Made%20with-Bash-1f425f.svg)](https://www.gnu.org/software/bash/) 
 
-![Python Version%(https://img.shields.io/badge/Python-3.7.3+-brightgreen) ![Debian](https://img.shields.io/badge/Debian-10%20(buster)-orange) ![nginx version](https://img.shields.io/badge/nginx-1.18.0--6.1%20-green)
+![Python Version](https://img.shields.io/badge/Python-3.7.3%2B-yellow) ![Debian](https://img.shields.io/badge/Debian-10%20(buster)-orange) ![nginx version](https://img.shields.io/badge/nginx-1.18.0--6.1%20-green)
 
 [![MIT license](https://img.shields.io/badge/License-MIT-blue.svg)](https://lbesson.mit-license.org/)
 
