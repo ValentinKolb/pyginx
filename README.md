@@ -5,6 +5,8 @@
   \___/   |_|   |__/|___/ ............
 ```
 
+![GitHub commit activity](https://img.shields.io/github/commit-activity/w/ValentinKolb/pyginx)
+
 Python scripts to automate nginx virtual server and stream deployment.
 
 Tested on `Debian` with `Python 3.7.3`
