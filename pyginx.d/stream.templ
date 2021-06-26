@@ -1,13 +1,13 @@
 # [ debug | info | notice | warn | error | crit ]
-error_log  /var/log/stream_{{ label }}.nginx.error_log  warn;
+error_log  /var/log/stream_{{ data.label }}.nginx.error_log  warn;
 
-upstream {{ backend_name }} {
-    {% for upstream in upstreams %}
+upstream {{ data.backend_name }} {
+    {% for upstream in data.upstreams %}
     server {{ upstream }};
     {% endfor %}
 }
 
 server {
-      listen        {{ port }};
-      proxy_pass    {{ backend_name }};
+      listen        {{ data.port }};
+      proxy_pass    {{ data.backend_name }};
 }
