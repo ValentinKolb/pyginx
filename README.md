@@ -5,6 +5,9 @@
   \___/   |_|   |__/|___/ ............
 ```
 
+Python scripts to automate nginx virtual server and stream deployment.
+
+
 [![Maintenance](https://img.shields.io/badge/Maintained%3F-yes-green.svg)](https://GitHub.com/Naereen/StrapDown.js/graphs/commit-activity) ![GitHub commit activity](https://img.shields.io/github/commit-activity/m/ValentinKolb/pyginx) 
 
 [![made-with-python](https://img.shields.io/badge/Made%20with-Python-1f425f.svg)](https://www.python.org/) [![made-with-bash](https://img.shields.io/badge/Made%20with-Bash-1f425f.svg)](https://www.gnu.org/software/bash/) 
@@ -12,10 +15,6 @@
 ![Python Version](https://img.shields.io/badge/Python-3.7.3%2B-yellow) ![Debian](https://img.shields.io/badge/Debian-10%20(buster)-orange) ![nginx version](https://img.shields.io/badge/nginx-1.18.0--6.1%20-green)
 
 [![MIT license](https://img.shields.io/badge/License-MIT-blue.svg)](https://lbesson.mit-license.org/)
-
-Python scripts to automate nginx virtual server and stream deployment.
-
-Tested on `Debian` with `Python 3.7.3`
 
 ## Dependencies
 
@@ -36,6 +35,8 @@ These will be automatically installed if you use the script.
 
 ```shell
 curl https://raw.githubusercontent.com/ValentinKolb/pyginx/main/install.sh | bash
+
+sudo pyginx --help
 ```
 
 **Caution**: This deletes all previous versions of pyginx on your system and override the default config file.
@@ -66,7 +67,7 @@ todo!
 The script has two functions: to create a config file for a virtual http server
 and to create the config file for a stream.
 
-### Create http server
+### Create http v-server
 
 Run `sudo pyginx http -h` to get http-server specific help.
 
