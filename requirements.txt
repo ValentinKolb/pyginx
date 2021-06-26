@@ -1,3 +1,2 @@
 Jinja2==3.0.1
 validators==0.18.2
-pyserde==0.4.0

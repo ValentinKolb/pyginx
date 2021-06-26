@@ -13,148 +13,32 @@ from typing import Optional, Union
 
 import validators
 from jinja2 import FileSystemLoader, Environment
-
-# creating parser for config file
 from configparser import ConfigParser, ExtendedInterpolation
 
-config_file_parser = ConfigParser(interpolation=ExtendedInterpolation())
+VERSION = '1.7.0'
 
-VERSION = '1.7'
-
-
-def domain(d: str) -> str:
-    """
-    validates a string to be a domain name or an IPv4 oder IPv6
-
-    Parameters
-    ----------
-    d : str
-        the string to be validated
-
-     Raises
-    ------
-    argparse.ArgumentTypeError
-        will be raised if the validation fails
+# creating parser for config file
+config_file = ConfigParser(interpolation=ExtendedInterpolation())
 
 
-    Returns
-    -------
-    bool :
-        the domain
-    """
-    if any([d == 'localhost',
-            validators.domain(d),
-            validators.ipv4(d),
-            validators.ipv6(d)]):
-        return d
-    raise argparse.ArgumentTypeError(f'{d}: must be a valid dns name, IPv4 or IPv6')
+# datatype's
+def wrong_argument(message: str):
+    raise argparse.ArgumentTypeError(message)
 
 
-def port(p: str) -> str:
-    """
-    checks if an string is a network port
-
-    Parameters
-    ----------
-    p : str
-        will be check
-
-     Raises
-    ------
-    argparse.ArgumentTypeError
-        will be raised if the validation fails
-
-    Returns
-    -------
-    str :
-        the port if it is a positive integer between 1 and 65535, False otherwise
-    """
-    if p.isnumeric() and 1 <= int(p) <= 65535:
-        return p
-    raise argparse.ArgumentTypeError(f'{p}: must be a positive integer between 1 and 65535')
-
-
-def upstream(u: str):
-    """
-    validates a upstream
-
-    Parameters
-    ----------
-    u : str
-        will be validated
-
-    Raises
-    ------
-    argparse.ArgumentTypeError
-        will be raised if the validation fails
-
-    Returns
-    -------
-    str :
-        the validated upstream will be returned
-    """
-    d, p = u.split(":", 1)
-    domain(d)
-    port(p)
-    return u
-
-
-def backend_name(b: str):
-    """
-    validates a name for a backend
-
-    a backend name can only contain letters and underscores
-
-    Parameters
-    ----------
-    b : str
-        will be validated
-
-    Raises
-    ------
-    argparse.ArgumentTypeError
-        will be raised if the validation fails
-
-    Returns
-    -------
-    str :
-        the validated backend_name will be returned
-
-    """
-    if b is None:
-        return None
-    b = b.strip()
-    pattern = r'^[a-zA-z0-9_]+$'
-    if re.match(pattern, b):
-        return b
-    raise argparse.ArgumentTypeError(f'{b}: str can only contain letters, number and underscores')
-
-
-def forward_scheme(s: str):
-    """
-    validates a forward scheme
-
-    must be either 'http' or 'https'
-
-    Parameters
-    ----------
-    s : str
-        will be validated
-
-    Raises
-    ------
-    argparse.ArgumentTypeError
-        will be raised if the validation fails
-
-    Returns
-    -------
-    str :
-        the validated forward_scheme will be returned
-    """
-    s = s.strip()
-    if s in ('http', 'https'):
-        return s
-    raise argparse.ArgumentTypeError(f'{s}: must be either http or https')
+domain = lambda d: d if any([d == 'localhost',
+                             validators.domain(d),
+                             validators.ipv4(d),
+                             validators.ipv6(d)]) \
+    else wrong_argument(f'{d}: must be a valid dns name, IPv4 or IPv6')
+port = lambda p: p if p.isnumeric() and 1 <= int(p) <= 65535 \
+    else wrong_argument(f'{p}: must be a positive integer between 1 and 65535')
+upstream = lambda u: u if domain(u.split(":", 1)[0]) and port(u.split(":", 1)[1]) else None
+backend_name = lambda b: b if re.match(r'^[a-zA-z0-9_]+$', b) or b is None \
+    else wrong_argument(f'{b}: str can only contain letters, number and underscores')
+forward_scheme = lambda s: s if s in ('http', 'https') \
+    else wrong_argument(f'{s}: must be either http or https')
+label = lambda s: s if True else argparse.ArgumentTypeError(f'{s}: must be either http or https')
 
 
 @dataclass(frozen=True)
@@ -162,7 +46,7 @@ class HTTPData:
     """
     stores all data for the http template
     """
-    label: label
+    label: str
     backend_name: backend_name
     upstreams: list[upstream]
     domain: domain
@@ -174,7 +58,7 @@ class StreamData:
     """
     stores all data for the stream template
     """
-    label: label
+    label: str
     backend_name: backend_name
     upstreams: list[upstream]
     port: port
@@ -195,6 +79,11 @@ def deploy_config(template: str, data: Union[HTTPData, StreamData], path: str, a
         the current argparse namespace
     """
     rendered_template = jinja_env.get_template(template).render(data=data)
+
+    if args.mock:
+        print("Generated config:")
+        print(rendered_template)
+        exit(0)
 
     if os.path.isfile(path):
         if not "y" == input(
@@ -248,7 +137,8 @@ if __name__ == '__main__':
                                  action="store_true",
                                  default=False,
                                  help="Run script in mock mode. "
-                                      "In this mode the config is not saved and nginx is not reloaded.")
+                                      "In this mode the config is not saved and nginx is not reloaded. "
+                                      "Certbot will also not be run.")
 
     # option for verbose and quiet output
     verbose_quiet_group = argument_parser.add_mutually_exclusive_group()
@@ -261,7 +151,7 @@ if __name__ == '__main__':
                                      default=False,
                                      help="Minimal output.")
 
-    subparsers = argument_parser.add_subparsers(help="run 'pyginx <command> -h' for more info", required=True,
+    subparsers = argument_parser.add_subparsers(help="run 'pyginx <usage> -h' for more info", required=True,
                                                 dest="usage")
 
     # create the parser for the "http" command
@@ -341,7 +231,7 @@ if __name__ == '__main__':
     quiet: bool = args.quiet
 
     # check if script is run as root
-    if not (args.mock and os.geteuid() == 0):
+    if not args.mock and not os.geteuid() == 0:
         print("You must run this script as root", file=sys.stderr)
         exit(1)
 
@@ -350,15 +240,15 @@ if __name__ == '__main__':
         print('\n'.join(f'{k}={v}' for k, v in vars(args).items()))
 
     # parse the config file
-    config_file_parser.read(args.config_file)
-    config_template_dir: str = str(config_file_parser["templates"]["template-dir"])
-    config_http_template: str = str(config_file_parser["templates"]["http-template"])
-    config_stream_template: str = str(config_file_parser["templates"]["stream-template"])
-    config_nginx_http_dir: str = str(config_file_parser["nginx"]["http-config-dir"])
-    config_nginx_stream_dir: str = str(config_file_parser["nginx"]["stream-config-dir"])
+    config_file.read(args.config_file)
+    template_path: str = config_file["templates"]["path"]
+    http_template: str = config_file["templates"]["http"]
+    stream_template: str = config_file["templates"]["stream"]
+    config_nginx_http_dir: str = config_file["nginx"]["http"]
+    config_nginx_stream_dir: str = config_file["nginx"]["stream"]
 
     # set up templating engine environment
-    jinja_env = Environment(loader=FileSystemLoader(config_template_dir),
+    jinja_env = Environment(loader=FileSystemLoader(template_path),
                             lstrip_blocks=True,
                             trim_blocks=True)
 
@@ -372,10 +262,9 @@ if __name__ == '__main__':
                   f'{"http://" if args.no_ssl else "https://"}{args.domain} -> ( {" | ".join(args.upstreams)} )')
 
         filename = f"{args.label}.conf" if args.label else f"{args.domain}.conf"
-        path = f"{config_nginx_http_dir}/{filename}"
         label = f'{args.label if args.label else args.domain}'.strip()
 
-        deploy_config(template=config_http_template,
+        deploy_config(template=http_template,
                       data=HTTPData(
                           domain=args.domain,
                           upstreams=args.upstreams,
@@ -393,7 +282,7 @@ if __name__ == '__main__':
         filename = f"{args.label}.conf" if args.label else f"{args.port}.conf"
         label = f'{args.label if args.label else args.port}'.strip()
 
-        deploy_config(template=config_stream_template,
+        deploy_config(template=stream_template,
                       data=StreamData(
                           port=args.port,
                           upstreams=args.upstreams,

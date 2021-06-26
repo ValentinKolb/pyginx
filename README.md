@@ -77,6 +77,23 @@ and when it is correct, nginx is reloaded automatically.
 
 If the flag is not specified certbot will be run automatically to create a certificate.
 
+```shell
+$ [sudo] pyginx http -h # for help sudo is not required
+...
+usage: pyginx http [-h] -d  --upstreams  [...] [--backendName] [--forwardScheme] [--no-ssl]
+
+optional arguments:
+  -h, --help            show this help message and exit
+  --backendName , -b    The name of the backend. The default value is 'backend_<label/domain>
+  --forwardScheme       The forward scheme for the backend. Must be 'http' (default) or 'https'
+  --no-ssl              Disable SSL: prevent to automatically run certbot to request a ssl certificate and enable https
+
+required:
+  -d , --domain         The domain under which the service is reachable. This must be a fully qualified domain name. (e.g. example.com)
+  --upstreams  [ ...], -u  [ ...]
+                        The upstream and port where the connection is forwarded to. Separate multiple upstreams by spaces. Format: <domain/ip>:<port>
+```
+
 ### Create a stream (aka port forwarding)
 
 Run `sudo pyginx stream -h` to get stream specific help.
@@ -91,25 +108,56 @@ $ sudo pyginx http -p 8080 -u backend1.example.com:80 backend1.example.com:81
 
 With `-p` you can specify the port to be forwarded. The upstreams are specified as above.
 
+```shell
+$ [sudo] pyginx stream -h # for help sudo is not required
+...
+usage: pyginx stream [-h] --upstreams  [...] --port  [--backendName]
+
+optional arguments:
+  -h, --help            show this help message and exit
+  --backendName , -b    The name of the backend. The default value is 'backend_<label/port>
+
+required:
+  --upstreams  [ ...], -u  [ ...]
+                        The upstream and port where the connection is forwarded to. Separate multiple upstreams by spaces. Format: <domain/ip>:<port>
+  --port , -p           The port that to be forwarded.
+
+```
+
 ### Additional parameters
 
 Run the following to list all:
 
 ```shell
-sudo pyginx --help
+$ [sudo] pyginx --help # for help sudo is not required
+...
+usage: pyginx [-h] [--version] [--config-file] [--label] [--mock] [--verbose | --quiet] {http,stream} ...
+
+Python script to automate nginx virtual server and stream deployment.
+
+positional arguments:
+  {http,stream}   run 'pyginx <usage> -h' for more info
+    http          Run this command to create a new config file for an http virtual server
+    stream        Created a new config file for a tcp stream (i.e port-forwarding). For this the port on this server must be exposed by the firewall
+
+optional arguments:
+  -h, --help      show this help message and exit
+  --version       show program's version number and exit
+  --config-file   The path of the pyginx config file.
+  --label         This label is used for the filename of the configuration and log file and for the name of the backend. The default value is the domain for 'http' and the public port for 'stream'
+  --mock          Run script in mock mode. In this mode the config is not saved and nginx is not reloaded. Certbot will also not be run.
+  --verbose       Verbose output.
+  --quiet         Minimal output.
+
 ```
 
-| Parameter         | Info                              |
-|-------------------|-----------------------------------|
-| `--version`       | show program's version number and exit    |
-| `--config-file`   | after this flag a custom config file can be specified. the default config file in located here: `/etc/pyginx.d/pyginx.ini` |
+### Coming Soon
 
-
-### Coming Feature
-
-* specify forward scheme for http backend
-* specify backend name
-* specify load balancing algorithm for backend
+- [x] specify forward scheme for http backend
+- [x] specify backend name
+- [ ] specify load balancing algorithm for the backend
+- [ ] list all current config files
+- [ ] install and set up nginx and letsencipt
 
 
 
