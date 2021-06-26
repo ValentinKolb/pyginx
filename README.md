@@ -84,7 +84,7 @@ usage: pyginx http [-h] -d  --upstreams  [...] [--backendName] [--forwardScheme]
 
 optional arguments:
   -h, --help            show this help message and exit
-  --backendName , -b    The name of the backend. The default value is 'backend_<label/domain>
+  --backendName , -b    The name of the backend. The default value is 'backend_<label/domain>'.
   --forwardScheme       The forward scheme for the backend. Must be 'http' (default) or 'https'
   --no-ssl              Disable SSL: prevent to automatically run certbot to request a ssl certificate and enable https
 
@@ -115,7 +115,7 @@ usage: pyginx stream [-h] --upstreams  [...] --port  [--backendName]
 
 optional arguments:
   -h, --help            show this help message and exit
-  --backendName , -b    The name of the backend. The default value is 'backend_<label/port>
+  --backendName , -b    The name of the backend. The default value is 'backend_<label/port>'.
 
 required:
   --upstreams  [ ...], -u  [ ...]
@@ -142,7 +142,7 @@ positional arguments:
 
 optional arguments:
   -h, --help      show this help message and exit
-  --version       show program's version number and exit
+  --version       Show Version.
   --config-file   The path of the pyginx config file.
   --label         This label is used for the filename of the configuration and log file and for the name of the backend. The default value is the domain for 'http' and the public port for 'stream'
   --mock          Run script in mock mode. In this mode the config is not saved and nginx is not reloaded. Certbot will also not be run.

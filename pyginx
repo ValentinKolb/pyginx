@@ -125,7 +125,7 @@ if __name__ == '__main__':
         prog='pyginx',
         description='Python script to automate nginx virtual server and stream deployment.'
     )
-    argument_parser.add_argument('--version', action='version', version=f'%(prog)s {VERSION}')
+    argument_parser.add_argument('--version', action='version', version=f'%(prog)s {VERSION}', help="Show version.")
     argument_parser.add_argument('--config-file', metavar="", type=str, default="/etc/pyginx.d/pyginx.ini",
                                  help="The path of the pyginx config file.")
 
@@ -179,7 +179,7 @@ if __name__ == '__main__':
     http_parser.add_argument('--backendName', '-b',
                              metavar="",
                              type=backend_name,
-                             help="The name of the backend. The default value is 'backend_<label/domain>",
+                             help="The name of the backend. The default value is 'backend_<label/domain>'",
                              default=None,
                              required=False)
     http_parser.add_argument('--forwardScheme',
@@ -219,7 +219,7 @@ if __name__ == '__main__':
     stream_parser.add_argument('--backendName', '-b',
                                metavar="",
                                type=backend_name,
-                               help="The name of the backend. The default value is 'backend_<label/port>",
+                               help="The name of the backend. The default value is 'backend_<label/port>'",
                                default=None,
                                required=False)
 
