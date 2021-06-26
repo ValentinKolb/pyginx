@@ -35,8 +35,6 @@ These will be automatically installed if you use the script.
 
 ```shell
 curl https://raw.githubusercontent.com/ValentinKolb/pyginx/main/install.sh | bash
-
-sudo pyginx --help
 ```
 
 **Caution**: This deletes all previous versions of pyginx on your system and override the default config file.
