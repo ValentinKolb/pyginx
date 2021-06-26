@@ -5,7 +5,7 @@
   \___/   |_|   |__/|___/ ............
 ```
 
-![GitHub commit activity](https://img.shields.io/github/commit-activity/w/ValentinKolb/pyginx)
+[![Maintenance](https://img.shields.io/badge/Maintained%3F-yes-green.svg)](https://GitHub.com/Naereen/StrapDown.js/graphs/commit-activity) ![GitHub commit activity](https://img.shields.io/github/commit-activity/m/ValentinKolb/pyginx) [![made-with-python](https://img.shields.io/badge/Made%20with-Python-1f425f.svg)](https://www.python.org/) [![made-with-bash](https://img.shields.io/badge/Made%20with-Bash-1f425f.svg)](https://www.gnu.org/software/bash/) ![Debian](https://img.shields.io/badge/Debian-10%20(buster)-orange) ![nginx version](https://img.shields.io/badge/nginx-1.18.0--6.1%20-green) [![MIT license](https://img.shields.io/badge/License-MIT-blue.svg)](https://lbesson.mit-license.org/)
 
 Python scripts to automate nginx virtual server and stream deployment.
 
