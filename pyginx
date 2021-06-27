@@ -11,7 +11,7 @@ from os.path import isfile, join
 from dataclasses import dataclass
 
 # remote dependencies
-from typing import Optional, Union
+from typing import Optional, Union, NewType, Literal
 
 import validators
 from jinja2 import FileSystemLoader, Environment
@@ -56,7 +56,7 @@ argument_parser = argparse.ArgumentParser(
     prog='pyginx',
     description='Python script to automate nginx virtual server and stream deployment.'
 )
-argument_parser.add_argument('--version', action='version', version=f'%(prog)s {VERSION}', help="Show version.")
+argument_parser.add_argument('--version', action='version', version=f'%(prog)s {VERSION}', help="Show version and exit.")
 argument_parser.add_argument('--config-file', metavar="", type=str, default="/etc/pyginx.d/pyginx.ini",
                              help="The path of the pyginx config file.")
 
@@ -68,8 +68,8 @@ argument_parser.add_argument("--mock",
                              action="store_true",
                              default=False,
                              help="Run script in mock mode. "
-                                  "In this mode the config is not saved and nginx is not reloaded. "
-                                  "Certbot will also not be run.")
+                                  "In this mode the config is not saved but printed to the terminal. "
+                                  "Neither nginx nor certbot will be run.")
 
 # option for verbose and quiet output
 verbose_quiet_group = argument_parser.add_mutually_exclusive_group()
@@ -203,6 +203,68 @@ class StreamData(Data):
 ##
 # HELPER FUNCTIONS
 ##
+
+YES = "YES"
+NO = "NO"
+
+MODE = Literal["not-quiet", "verbose", "always"]
+STYLE = Optional[Literal["success", "error", "bold"]]
+
+
+def output(message: str, mode: MODE = "always", file=sys.stdout, style: STYLE = None):
+    """
+    prints message to the console
+    the message will only be printed, if the mode matches the mode specified in argparse
+
+    Parameters
+    ----------
+    message : str
+        will be printed
+    mode : MODE
+        either not-quiet, verbose or always
+    file :
+        same as print(file=..)
+    style : STYLE
+        the style of the output, None for no special style
+    """
+    reset = u'\u001b[0m'
+    green = u'\u001b[32m'
+    red = u'\u001b[31m'
+    bold = u'\u001b[1m'
+    if mode == "not-quiet" and not args.quiet or mode == "verbose" and args.verbose or mode == "always":
+        if style == "success":
+            message = f'✔ {green}{message}{reset}'
+        elif style == "error":
+            message = f'✗ {red}{message}{reset}'
+        elif style == "bold":
+            message = f'{bold}{message}{reset}'
+        print(message, file=file)
+
+
+def yes_or_no(message: str, default: Optional[Literal["YES", "NO"]] = YES) -> Literal["YES", "NO"]:
+    """
+    prompt user for yes or no question
+
+    Parameters
+    ----------
+    message :
+        will be printed to inform the suer about the question
+    default :
+        either YES, NO or None. this value will be returned, if the user enters nothing.
+        if None, the user will be prompted until something valid is entered
+
+    Returns
+    -------
+    str :
+        the answer
+    """
+    output(f"{message.strip()} {'[Y/n]' if default == YES else '[y/N]' if default == NO else '[y/n]'} ")
+    if _in := input().lower().strip() or default:
+        return YES if _in in ['y', 'yes'] else NO if _in in ['n', 'no'] else yes_or_no(message, default)
+    else:
+        return default
+
+
 def deploy_config(template: str, data: Union[HTTPData, StreamData], path: str, args: argparse.Namespace):
     """
     renders template and deploys it
@@ -220,55 +282,72 @@ def deploy_config(template: str, data: Union[HTTPData, StreamData], path: str, a
     rendered_template = jinja_env.get_template(template).render(data=data)
 
     if args.mock:
-        print("Generated config:")
-        print(rendered_template)
+        output("\nGenerated config:", style='bold')
+        output(rendered_template)
         exit(0)
 
-    if os.path.isfile(path):
-        if not "y" == input(
-                f"The file {filename} already exists,"
-                f" do you want to override it? [y/n] : ").strip().lower():
-            exit(2)
+    if os.path.isfile(path) and \
+            yes_or_no(f"The file {filename} already exists, do you want to override it?", default=None) == NO:
+        exit(2)
 
     # write to config file
-    if not args.quiet:
-        print(f"Saving config file to {path!r}")
+    output(f"Saving config file to {path!r}", mode="not-quiet")
     with open(path, "w+") as file:
         file.write(rendered_template)
 
     # run certbot accordingly
-    if args.usage == "http" and not args.no_ssl and not args.mock:
+    if args.usage == "http" and not args.no_ssl:
         return_code = subprocess.call(["sudo", "certbot", "--nginx", "-d", args.domain])
         if return_code != 0:
             exit(return_code)
 
-    if not args.quiet:
-        print("The config file was generated.")
-        print("The file will be automatically opened in 'nano' for further adjustments.")
-    input("Press ENTER to continue.")
+    output("The config file was generated.", mode="not-quiet")
+    output("The file will be automatically opened in 'nano' for further adjustments.", mode="not-quiet")
+    output("Press ENTER to continue.", style="bold")
+    input()
 
-    edit_config_file(path)
+    open_in_editor(path)
+
+    if reload_nginx():
+        output("Configuration successfully deployed!", style="success")
+        output(f"Config file: {path}", style="bold")
+    else:
+        output(f"The config file contains invalid syntax. Location of the file : {path}", file=sys.stderr,
+               style="error")
+        output("To reload nginx after the fix run 'sudo systemctl reload nginx'", style="bold")
+        exit(3)
 
 
-def edit_config_file(path):
+def open_in_editor(path) -> bool:
     """
     opens the file in $EDITOR (default is nano not set)
-    after the file was saved and if ``nginx -t`` was successfully nginx is reloaded
 
     Parameters
     ----------
     path : str
         the path of the file to be edited
+
+    Returns
+    -------
+    bool :
+        whether edit exited successful
     """
-    subprocess.call(["sudo", os.getenv("$EDITOR", "nano"), path])
+    return subprocess.call(["sudo", os.getenv("$EDITOR", "nano"), path]) or False
+
+
+def reload_nginx() -> bool:
+    """
+    if ``nginx -t`` was successful nginx is reloaded
+
+    Returns
+    -------
+    bool :
+        whether nginx was reloaded
+    """
     if 0 != subprocess.call(["sudo", "nginx", "-t"]):
-        print(f"The config file contains invalid syntax. Location of the file : {path}", file=sys.stderr)
-        print("To reload nginx after the fix run 'sudo systemctl reload nginx'")
-        exit(3)
+        return False
     else:
-        subprocess.call(["sudo", "systemctl", "reload", "nginx"])
-        print("Configuration successfully deployed!")
-        print(f"Config file: {path}")
+        return subprocess.call(["sudo", "systemctl", "reload", "nginx"]) or False
 
 
 def config_files():
@@ -300,7 +379,7 @@ def get_nginx_conf_file(label: str):
         if re.match(rf'.*/{label}', conf_file):
             return conf_file
     else:
-        print(f"File {label} not found!", file=sys.stderr)
+        output(f"File {label} not found!", file=sys.stderr, style="error")
         exit(4)
 
 
@@ -314,14 +393,13 @@ if __name__ == '__main__':
 
     # check if script is run as root
     if not args.mock and not os.geteuid() == 0:
-        print("You must run this script as root", file=sys.stderr)
+        output("You must run this script as root", file=sys.stderr, style="error")
         exit(1)
 
     # output arguments if verbose output
-    if args.verbose:
-        print("Run with arguments: ")
-        print('\n'.join(f'{k}={v}' for k, v in vars(args).items()))
-        print()
+    output("Run with arguments: ", mode="verbose", style="bold")
+    output('\n'.join(f'{k}={v}' for k, v in vars(args).items()), mode="verbose")
+    output("")
 
     # parse the config file
     config_file.read(args.config_file)
@@ -340,8 +418,7 @@ if __name__ == '__main__':
     if args.usage == "http":
         # create a new http config file
         list_info = f'{"http://" if args.no_ssl else "https://"}{args.domain} -> {args.forwardScheme}:// ( {" | ".join(args.upstreams)} )'
-        if not args.quiet:
-            print(f'Creating config for: {list_info}')
+        output(f'Creating config for: {list_info}', mode="not-quiet", style="bold")
 
         filename = f"{args.label}.conf" if args.label else f"{args.domain}.conf"
         label = f'{args.label if args.label else args.domain}'.strip()
@@ -360,8 +437,7 @@ if __name__ == '__main__':
     elif args.usage == "stream":
         # create a new stream config file
         list_info = f'0.0.0.0:{args.port} -> ( {" | ".join(args.upstreams)} )'
-        if not args.quiet:
-            print(f'Creating config for: {list_info}')
+        output(f'Creating config for: {list_info}', mode="not-quiet", style="bold")
 
         filename = f"{args.label}.conf" if args.label else f"{args.port}.conf"
         label = f'{args.label if args.label else args.port}'.strip()
@@ -379,18 +455,21 @@ if __name__ == '__main__':
     elif args.usage == "list":
         # lists all config files and extracts additional info if possible
         files = config_files()
-        print("Configuration:")
+        output("Configuration:", style="bold")
         for file in files:
             with open(file) as f:
                 for line in f.readlines():
                     if match := re.match(r'^# list_info: (?P<list_info>.*)$', line):
-                        print(f'{file} => {match.group("list_info")}')
-                    else:
-                        print(file)
+                        output(f'{file} => {match.group("list_info")}')
+                        break
+                else:
+                    output(f'{file} => ?')
+        output("")
 
     elif args.usage == "edit":
         # opens the specified file and reloads nginx afterwards
-        edit_config_file(get_nginx_conf_file(args.file))
+        open_in_editor(get_nginx_conf_file(args.file))
 
     else:
         exit(-1)
+

@@ -7,10 +7,9 @@
 
 Python scripts to automate nginx virtual server and stream deployment.
 
+[![Maintenance](https://img.shields.io/badge/Maintained%3F-yes-green.svg)](https://GitHub.com/Naereen/StrapDown.js/graphs/commit-activity) ![GitHub commit activity](https://img.shields.io/github/commit-activity/m/ValentinKolb/pyginx)
 
-[![Maintenance](https://img.shields.io/badge/Maintained%3F-yes-green.svg)](https://GitHub.com/Naereen/StrapDown.js/graphs/commit-activity) ![GitHub commit activity](https://img.shields.io/github/commit-activity/m/ValentinKolb/pyginx) 
-
-[![made-with-python](https://img.shields.io/badge/Made%20with-Python-1f425f.svg)](https://www.python.org/) [![made-with-bash](https://img.shields.io/badge/Made%20with-Bash-1f425f.svg)](https://www.gnu.org/software/bash/) 
+[![made-with-python](https://img.shields.io/badge/Made%20with-Python-1f425f.svg)](https://www.python.org/) [![made-with-bash](https://img.shields.io/badge/Made%20with-Bash-1f425f.svg)](https://www.gnu.org/software/bash/)
 
 ![Python Version](https://img.shields.io/badge/Python-3.7.3%2B-yellow) ![Debian](https://img.shields.io/badge/Debian-10%20(buster)-orange) ![nginx version](https://img.shields.io/badge/nginx-1.18.0--6.1%20-green)
 
@@ -29,7 +28,7 @@ These will be automatically installed if you use the script.
 * jinja2
 * validators
 
-## Install 
+## Install
 
 ### Install with script (recommend)
 
@@ -37,8 +36,8 @@ These will be automatically installed if you use the script.
 curl https://raw.githubusercontent.com/ValentinKolb/pyginx/main/install.sh | bash
 ```
 
-**Caution**: This deletes all previous versions of pyginx on your system and override the default config file.
-Be sure to back it up if you changed anything.
+**Caution**: This deletes all previous versions of pyginx on your system and override the default config file. Be sure
+to back it up if you changed anything.
 
 **Disclaimer**: This script will install pip3 on your system to install all python dependencies.
 
@@ -62,8 +61,8 @@ See [here](https://github.com/ValentinKolb/nginx.conf) for more information.
 
 ## Usage
 
-The script has two functions: to create a config file for a virtual http server
-and to create the config file for a stream.
+The script has two functions: to create a config file for a virtual http server and to create the config file for a
+stream.
 
 ### Create http v-server
 
@@ -79,8 +78,8 @@ $ sudo pyginx http -d example.com -u backend1.example.com:80 backend2.example.co
 
 After `-d` the domain of the virtual server must be entered. With the `-u` parameter all upstream backends can be listed
 
-If `--no-ssl` is specified all is ready now. The created config file opens automatically in nano to edit it further
-and when it is correct, nginx is reloaded automatically.
+If `--no-ssl` is specified all is ready now. The created config file opens automatically in nano to edit it further and
+when it is correct, nginx is reloaded automatically.
 
 If the flag is not specified certbot will be run automatically to create a certificate.
 
@@ -166,10 +165,10 @@ optional arguments:
 - [ ] specify load balancing algorithm for the backend
 - [ ] install and set up nginx
 - new commands
-  - [x] list all current config files
-  - [ ] remove
-  - [x] edit
-  - [ ] disable/enable
+    - [x] list all current config files
+    - [ ] remove
+    - [x] edit
+    - [ ] disable/enable
 
 
 
