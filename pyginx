@@ -56,7 +56,8 @@ argument_parser = argparse.ArgumentParser(
     prog='pyginx',
     description='Python script to automate nginx virtual server and stream deployment.'
 )
-argument_parser.add_argument('--version', action='version', version=f'%(prog)s {VERSION}', help="Show version and exit.")
+argument_parser.add_argument('--version', action='version', version=f'%(prog)s {VERSION}',
+                             help="Show version and exit.")
 argument_parser.add_argument('--config-file', metavar="", type=str, default="/etc/pyginx.d/pyginx.ini",
                              help="The path of the pyginx config file.")
 
@@ -312,8 +313,7 @@ def deploy_config(template: str, data: Union[HTTPData, StreamData], path: str, a
         output("Configuration successfully deployed!", style="success")
         output(f"Config file: {path}", style="bold")
     else:
-        output(f"The config file contains invalid syntax. Location of the file : {path}", file=sys.stderr,
-               style="error")
+        output(f"Location of the generated file : {path}", style="error")
         output("To reload nginx after the fix run 'sudo systemctl reload nginx'", style="bold")
         exit(3)
 
@@ -345,9 +345,17 @@ def reload_nginx() -> bool:
         whether nginx was reloaded
     """
     if 0 != subprocess.call(["sudo", "nginx", "-t"]):
+        output("'nginx -t' failed possibly due to invalid syntax in a config file. Nginx will not be reloaded.",
+               style="error")
         return False
     else:
-        return subprocess.call(["sudo", "systemctl", "reload", "nginx"]) or False
+        if subprocess.call(["sudo", "systemctl", "reload", "nginx"]):
+            output("Nginx was successfully reloaded!", style="success")
+            return True
+        else:
+            output("An error occurred while reloading nginx. Run 'sudo journalctl -u nginx.service' to see the logs",
+                   style="error")
+            return False
 
 
 def config_files():
@@ -468,8 +476,8 @@ if __name__ == '__main__':
 
     elif args.usage == "edit":
         # opens the specified file and reloads nginx afterwards
-        open_in_editor(get_nginx_conf_file(args.file))
+        if open_in_editor(get_nginx_conf_file(args.file)):
+            reload_nginx()
 
     else:
         exit(-1)
-
