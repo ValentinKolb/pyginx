@@ -162,9 +162,11 @@ optional arguments:
 
 - [x] specify forward scheme for http backend
 - [x] specify backend name
+- [x] don't use nano but $EDITOR as default editor for files
 - [ ] specify load balancing algorithm for the backend
-- [ ] list all current config files
-- [ ] install and set up nginx and letsencipt
+- [x] list all current config files
+- [ ] install and set up nginx
+- [ ] remove, edit and disable commands
 
 
 

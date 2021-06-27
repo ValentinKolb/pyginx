@@ -1,6 +1,8 @@
 # [ debug | info | notice | warn | error | crit ]
 error_log  /var/log/{{ data.label }}.nginx.error_log  warn;
 
+# list_info: {{ data.list_info }}
+
 upstream {{ data.backend_name }} {
     {% for upstream in data.upstreams %}
     server {{ upstream }};

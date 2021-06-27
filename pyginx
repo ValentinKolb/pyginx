@@ -6,6 +6,8 @@ import sys
 import subprocess
 import re
 
+from os import listdir
+from os.path import isfile, join
 from dataclasses import dataclass
 
 # remote dependencies
@@ -31,36 +33,46 @@ domain = lambda d: d if any([d == 'localhost',
                              validators.ipv4(d),
                              validators.ipv6(d)]) \
     else wrong_argument(f'{d}: must be a valid dns name, IPv4 or IPv6')
+
 port = lambda p: p if p.isnumeric() and 1 <= int(p) <= 65535 \
     else wrong_argument(f'{p}: must be a positive integer between 1 and 65535')
+
 upstream = lambda u: u if domain(u.split(":", 1)[0]) and port(u.split(":", 1)[1]) else None
+
 backend_name = lambda b: b if re.match(r'^[a-zA-z0-9_]+$', b) or b is None \
     else wrong_argument(f'{b}: str can only contain letters, number and underscores')
+
 forward_scheme = lambda s: s if s in ('http', 'https') \
     else wrong_argument(f'{s}: must be either http or https')
+
 label = lambda s: s if True else argparse.ArgumentTypeError(f'{s}: must be either http or https')
 
 
 @dataclass(frozen=True)
-class HTTPData:
+class Data:
     """
-    stores all data for the http template
+    base template data class
     """
+    list_info: str
     label: str
     backend_name: backend_name
     upstreams: list[upstream]
+
+
+@dataclass(frozen=True)
+class HTTPData(Data):
+    """
+    stores all data for the http template
+    """
     domain: domain
     forward_scheme: forward_scheme
 
 
 @dataclass(frozen=True)
-class StreamData:
+class StreamData(Data):
     """
     stores all data for the stream template
     """
-    label: str
-    backend_name: backend_name
-    upstreams: list[upstream]
     port: port
 
 
@@ -108,15 +120,57 @@ def deploy_config(template: str, data: Union[HTTPData, StreamData], path: str, a
         print("The file will be automatically opened in 'nano' for further adjustments.")
     input("Press ENTER to continue.")
 
-    subprocess.call(["sudo", "nano", path])
+    edit_config_file(path)
+
+
+def edit_config_file(path):
+    """
+    opens the file in $EDITOR (default is nano not set)
+    after the file was saved and if ``nginx -t`` was successfully nginx is reloaded
+
+    Parameters
+    ----------
+    path : str
+        the path of the file to be edited
+    """
+    subprocess.call(["sudo", os.getenv("$EDITOR", "nano"), path])
     if 0 != subprocess.call(["sudo", "nginx", "-t"]):
         print(f"The config file contains invalid syntax. Location of the file : {path}", file=sys.stderr)
         print("To reload nginx after the fix run 'sudo systemctl reload nginx'")
         exit(3)
+    else:
+        subprocess.call(["sudo", "systemctl", "reload", "nginx"])
+        print("Configuration successfully deployed!")
+        print(f"Config file: {path}")
 
-    subprocess.call(["sudo", "systemctl", "reload", "nginx"])
-    print("Configuration successfully deployed!")
-    print(f"Config file: {path}")
+
+def list_config():
+    """
+    prints the all config files and extracts additional information if possible
+    """
+    files = config_files()
+    print("Configuration:")
+    for file in files:
+        with open(file) as f:
+            for line in f.readlines():
+                if match := re.match(r'^# list_info: (?P<list_info>.*)$', line):
+                    print(f'{file} => {match.group("list_info")}')
+                else:
+                    print(file)
+
+
+def config_files():
+    """
+    Returns
+    -------
+    list :
+        all the config files
+    """
+    files = [join(nginx_http_dir, f) for f in listdir(nginx_http_dir) if isfile(join(nginx_http_dir, f))
+             and f.endswith(".conf")]
+    files += [join(nginx_stream_dir, f) for f in listdir(nginx_stream_dir) if isfile(join(nginx_stream_dir, f))
+              and f.endswith(".conf")]
+    return files
 
 
 if __name__ == '__main__':
@@ -223,6 +277,15 @@ if __name__ == '__main__':
                                default=None,
                                required=False)
 
+    # create parser for the list command
+    list_parser = subparsers.add_parser('list', help='Run this command to list all existing configs.')
+
+    # create parser for the list command
+    edit_parser = subparsers.add_parser('edit', help='Run this command to edit a configuration '
+                                                     'and reload nginx automatically')
+    edit_parser.add_argument("file", help="The name of the file to be edited. pyginx will look inside the directories "
+                                          "for the nginx config files as specified in the pyginx config file.")
+
     # parse command line arguments
     args = argument_parser.parse_args()
 
@@ -238,14 +301,15 @@ if __name__ == '__main__':
     if verbose:
         print("Run with arguments: ")
         print('\n'.join(f'{k}={v}' for k, v in vars(args).items()))
+        print()
 
     # parse the config file
     config_file.read(args.config_file)
     template_path: str = config_file["templates"]["path"]
     http_template: str = config_file["templates"]["http"]
     stream_template: str = config_file["templates"]["stream"]
-    config_nginx_http_dir: str = config_file["nginx"]["http"]
-    config_nginx_stream_dir: str = config_file["nginx"]["stream"]
+    nginx_http_dir: str = config_file["nginx"]["http"]
+    nginx_stream_dir: str = config_file["nginx"]["stream"]
 
     # set up templating engine environment
     jinja_env = Environment(loader=FileSystemLoader(template_path),
@@ -257,39 +321,57 @@ if __name__ == '__main__':
     data: Optional[Union[HTTPData, StreamData]] = None
 
     if args.usage == "http":
+        list_info = f'{"http://" if args.no_ssl else "https://"}{args.domain} -> {args.forwardScheme}:// ( {" | ".join(args.upstreams)} )'
         if not quiet:
-            print(f'Creating config for: '
-                  f'{"http://" if args.no_ssl else "https://"}{args.domain} -> ( {" | ".join(args.upstreams)} )')
+            print(f'Creating config for: {list_info}')
 
         filename = f"{args.label}.conf" if args.label else f"{args.domain}.conf"
         label = f'{args.label if args.label else args.domain}'.strip()
 
         deploy_config(template=http_template,
                       data=HTTPData(
+                          list_info=list_info,
                           domain=args.domain,
                           upstreams=args.upstreams,
                           label=label,
                           backend_name=args.backendName if args.backendName else f'backend_{label}',
                           forward_scheme=args.forwardScheme
-                      ), path=f"{config_nginx_http_dir}/{filename}",
+                      ), path=f"{nginx_http_dir}/{filename}",
                       args=args)
 
     elif args.usage == "stream":
+        list_info = f'0.0.0.0:{args.port} -> ( {" | ".join(args.upstreams)} )'
         if not quiet:
-            print(f'Creating config for: '
-                  f'0.0.0.0:{args.port} -> ( {" | ".join(args.upstreams)} )')
+            print(f'Creating config for: {list_info}')
 
         filename = f"{args.label}.conf" if args.label else f"{args.port}.conf"
         label = f'{args.label if args.label else args.port}'.strip()
 
         deploy_config(template=stream_template,
                       data=StreamData(
+                          list_info=list_info,
                           port=args.port,
                           upstreams=args.upstreams,
                           label=label,
                           backend_name=args.backendName if args.backendName else f'backend_{label}'
-                      ), path=f"{config_nginx_stream_dir}/{filename}",
+                      ), path=f"{nginx_stream_dir}/{filename}",
                       args=args)
+
+    elif args.usage == "list":
+
+        list_config()
+
+    elif args.usage == "edit":
+        file = args.file if args.file.endswith(".conf") else args.file + ".conf"
+        for conf_file in config_files():
+            if re.match(rf'.*/{file}', conf_file):
+                edit_config_file(conf_file)
+                break
+        else:
+            print("File not found!", file=sys.stderr)
+            exit(4)
+
+
 
     else:
         exit(-1)
