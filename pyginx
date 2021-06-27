@@ -19,11 +19,10 @@ from configparser import ConfigParser, ExtendedInterpolation
 
 VERSION = '1.7.0'
 
-# creating parser for config file
-config_file = ConfigParser(interpolation=ExtendedInterpolation())
 
-
-# datatype's
+##
+# SPECIAL DATA TYPES
+##
 def wrong_argument(message: str):
     raise argparse.ArgumentTypeError(message)
 
@@ -47,7 +46,130 @@ forward_scheme = lambda s: s if s in ('http', 'https') \
 
 label = lambda s: s if True else argparse.ArgumentTypeError(f'{s}: must be either http or https')
 
+##
+# ARGUMENT PARSER
+##
+# create the top-level parser
+argument_parser = argparse.ArgumentParser(
+    prog='pyginx',
+    description='Python script to automate nginx virtual server and stream deployment.'
+)
+argument_parser.add_argument('--version', action='version', version=f'%(prog)s {VERSION}', help="Show version.")
+argument_parser.add_argument('--config-file', metavar="", type=str, default="/etc/pyginx.d/pyginx.ini",
+                             help="The path of the pyginx config file.")
 
+argument_parser.add_argument('--label', metavar="", type=str, default=None,
+                             help="This label is used for the filename of the configuration and log "
+                                  "file and for the name of the backend. "
+                                  "The default value is the domain for 'http' and the public port for 'stream'")
+argument_parser.add_argument("--mock",
+                             action="store_true",
+                             default=False,
+                             help="Run script in mock mode. "
+                                  "In this mode the config is not saved and nginx is not reloaded. "
+                                  "Certbot will also not be run.")
+
+# option for verbose and quiet output
+verbose_quiet_group = argument_parser.add_mutually_exclusive_group()
+verbose_quiet_group.add_argument("--verbose",
+                                 action="store_true",
+                                 default=False,
+                                 help="Verbose output.")
+verbose_quiet_group.add_argument("--quiet",
+                                 action="store_true",
+                                 default=False,
+                                 help="Minimal output.")
+
+subparsers = argument_parser.add_subparsers(help="run 'pyginx <usage> -h' for more info", required=True,
+                                            dest="usage")
+
+# create the parser for the "http" command
+http_parser = subparsers.add_parser('http', help='Run this command to create a new '
+                                                 'config file for an http virtual server')
+
+# required http arguments
+http_parser_required = http_parser.add_argument_group("required")
+http_parser_required.add_argument('-d', '--domain',
+                                  metavar="",
+                                  type=domain,
+                                  help='The domain under which the service is reachable.'
+                                       ' This must be a fully qualified domain name. (e.g. example.com)',
+                                  required=True)
+http_parser_required.add_argument('--upstreams', '-u',
+                                  metavar="",
+                                  nargs="+",
+                                  type=upstream,
+                                  help='The upstream and port where the connection is forwarded to. '
+                                       'Separate multiple upstreams by spaces. '
+                                       'Format: <domain/ip>:<port>',
+                                  required=True)
+
+# optional http arguments
+http_parser.add_argument('--backendName', '-b',
+                         metavar="",
+                         type=backend_name,
+                         help="The name of the backend. The default value is 'backend_<label/domain>'",
+                         default=None,
+                         required=False)
+http_parser.add_argument('--forwardScheme',
+                         metavar="",
+                         type=forward_scheme,
+                         help="The forward scheme for the backend. Must be 'http' (default) or 'https'",
+                         default="http",
+                         required=False)
+http_parser.add_argument("--no-ssl",
+                         action="store_true",
+                         default=False,
+                         help="Disable SSL: prevent to automatically run certbot "
+                              "to request a ssl certificate and enable https")
+
+# create the parser for the "stream" command
+stream_parser = subparsers.add_parser('stream', help='Created a new config file for a '
+                                                     'tcp stream (i.e port-forwarding). '
+                                                     'For this the port on this server must '
+                                                     'be exposed by the firewall')
+# required stream arguments
+stream_parser_required = stream_parser.add_argument_group("required")
+stream_parser_required.add_argument('--upstreams', '-u',
+                                    metavar="",
+                                    nargs="+",
+                                    type=upstream,
+                                    help='The upstream and port where the connection is forwarded to. '
+                                         'Separate multiple upstreams by spaces. '
+                                         'Format: <domain/ip>:<port>',
+                                    required=True)
+stream_parser_required.add_argument('--port', '-p',
+                                    metavar="",
+                                    type=port,
+                                    help='The port that to be forwarded.',
+                                    required=True)
+
+# optional stream arguments
+stream_parser.add_argument('--backendName', '-b',
+                           metavar="",
+                           type=backend_name,
+                           help="The name of the backend. The default value is 'backend_<label/port>'",
+                           default=None,
+                           required=False)
+
+# create parser for the list command
+list_parser = subparsers.add_parser('list', help='Run this command to list all existing configs.')
+
+# create parser for the list command
+edit_parser = subparsers.add_parser('edit', help='Run this command to edit a configuration '
+                                                 'and reload nginx automatically')
+edit_parser.add_argument("file", help="The name of the file to be edited. pyginx will look inside the directories "
+                                      "for the nginx config files as specified in the pyginx config file.")
+
+##
+# CONFIG FILE PARSER
+##
+config_file = ConfigParser(interpolation=ExtendedInterpolation())
+
+
+##
+# DATACLASSES FOR STORING TEMPLATE DATA
+##
 @dataclass(frozen=True)
 class Data:
     """
@@ -76,6 +198,9 @@ class StreamData(Data):
     port: port
 
 
+##
+# HELPER FUNCTIONS
+##
 def deploy_config(template: str, data: Union[HTTPData, StreamData], path: str, args: argparse.Namespace):
     """
     renders template and deploys it
@@ -104,7 +229,7 @@ def deploy_config(template: str, data: Union[HTTPData, StreamData], path: str, a
             exit(2)
 
     # write to config file
-    if not quiet:
+    if not args.quiet:
         print(f"Saving config file to {path!r}")
     with open(path, "w+") as file:
         file.write(rendered_template)
@@ -115,7 +240,7 @@ def deploy_config(template: str, data: Union[HTTPData, StreamData], path: str, a
         if return_code != 0:
             exit(return_code)
 
-    if not quiet:
+    if not args.quiet:
         print("The config file was generated.")
         print("The file will be automatically opened in 'nano' for further adjustments.")
     input("Press ENTER to continue.")
@@ -144,21 +269,6 @@ def edit_config_file(path):
         print(f"Config file: {path}")
 
 
-def list_config():
-    """
-    prints the all config files and extracts additional information if possible
-    """
-    files = config_files()
-    print("Configuration:")
-    for file in files:
-        with open(file) as f:
-            for line in f.readlines():
-                if match := re.match(r'^# list_info: (?P<list_info>.*)$', line):
-                    print(f'{file} => {match.group("list_info")}')
-                else:
-                    print(file)
-
-
 def config_files():
     """
     Returns
@@ -173,132 +283,40 @@ def config_files():
     return files
 
 
+def get_nginx_conf_file(label: str):
+    """
+    return the correct config file with path
+    exits with error if file does not exist
+
+    Parameters
+    ----------
+    label : str
+        the name of the file
+    """
+    label = args.file if args.file.endswith(".conf") else args.file + ".conf"
+    for conf_file in config_files():
+        if re.match(rf'.*/{label}', conf_file):
+            return conf_file
+    else:
+        print(f"File {label} not found!", file=sys.stderr)
+        exit(4)
+
+
+##
+# MAIN
+##
 if __name__ == '__main__':
-    # create the top-level parser
-    argument_parser = argparse.ArgumentParser(
-        prog='pyginx',
-        description='Python script to automate nginx virtual server and stream deployment.'
-    )
-    argument_parser.add_argument('--version', action='version', version=f'%(prog)s {VERSION}', help="Show version.")
-    argument_parser.add_argument('--config-file', metavar="", type=str, default="/etc/pyginx.d/pyginx.ini",
-                                 help="The path of the pyginx config file.")
-
-    argument_parser.add_argument('--label', metavar="", type=str, default=None,
-                                 help="This label is used for the filename of the configuration and log "
-                                      "file and for the name of the backend. "
-                                      "The default value is the domain for 'http' and the public port for 'stream'")
-    argument_parser.add_argument("--mock",
-                                 action="store_true",
-                                 default=False,
-                                 help="Run script in mock mode. "
-                                      "In this mode the config is not saved and nginx is not reloaded. "
-                                      "Certbot will also not be run.")
-
-    # option for verbose and quiet output
-    verbose_quiet_group = argument_parser.add_mutually_exclusive_group()
-    verbose_quiet_group.add_argument("--verbose",
-                                     action="store_true",
-                                     default=False,
-                                     help="Verbose output.")
-    verbose_quiet_group.add_argument("--quiet",
-                                     action="store_true",
-                                     default=False,
-                                     help="Minimal output.")
-
-    subparsers = argument_parser.add_subparsers(help="run 'pyginx <usage> -h' for more info", required=True,
-                                                dest="usage")
-
-    # create the parser for the "http" command
-    http_parser = subparsers.add_parser('http', help='Run this command to create a new '
-                                                     'config file for an http virtual server')
-
-    # required http arguments
-    http_parser_required = http_parser.add_argument_group("required")
-    http_parser_required.add_argument('-d', '--domain',
-                                      metavar="",
-                                      type=domain,
-                                      help='The domain under which the service is reachable.'
-                                           ' This must be a fully qualified domain name. (e.g. example.com)',
-                                      required=True)
-    http_parser_required.add_argument('--upstreams', '-u',
-                                      metavar="",
-                                      nargs="+",
-                                      type=upstream,
-                                      help='The upstream and port where the connection is forwarded to. '
-                                           'Separate multiple upstreams by spaces. '
-                                           'Format: <domain/ip>:<port>',
-                                      required=True)
-
-    # optional http arguments
-    http_parser.add_argument('--backendName', '-b',
-                             metavar="",
-                             type=backend_name,
-                             help="The name of the backend. The default value is 'backend_<label/domain>'",
-                             default=None,
-                             required=False)
-    http_parser.add_argument('--forwardScheme',
-                             metavar="",
-                             type=forward_scheme,
-                             help="The forward scheme for the backend. Must be 'http' (default) or 'https'",
-                             default="http",
-                             required=False)
-    http_parser.add_argument("--no-ssl",
-                             action="store_true",
-                             default=False,
-                             help="Disable SSL: prevent to automatically run certbot "
-                                  "to request a ssl certificate and enable https")
-
-    # create the parser for the "stream" command
-    stream_parser = subparsers.add_parser('stream', help='Created a new config file for a '
-                                                         'tcp stream (i.e port-forwarding). '
-                                                         'For this the port on this server must '
-                                                         'be exposed by the firewall')
-    # required stream arguments
-    stream_parser_required = stream_parser.add_argument_group("required")
-    stream_parser_required.add_argument('--upstreams', '-u',
-                                        metavar="",
-                                        nargs="+",
-                                        type=upstream,
-                                        help='The upstream and port where the connection is forwarded to. '
-                                             'Separate multiple upstreams by spaces. '
-                                             'Format: <domain/ip>:<port>',
-                                        required=True)
-    stream_parser_required.add_argument('--port', '-p',
-                                        metavar="",
-                                        type=port,
-                                        help='The port that to be forwarded.',
-                                        required=True)
-
-    # optional stream arguments
-    stream_parser.add_argument('--backendName', '-b',
-                               metavar="",
-                               type=backend_name,
-                               help="The name of the backend. The default value is 'backend_<label/port>'",
-                               default=None,
-                               required=False)
-
-    # create parser for the list command
-    list_parser = subparsers.add_parser('list', help='Run this command to list all existing configs.')
-
-    # create parser for the list command
-    edit_parser = subparsers.add_parser('edit', help='Run this command to edit a configuration '
-                                                     'and reload nginx automatically')
-    edit_parser.add_argument("file", help="The name of the file to be edited. pyginx will look inside the directories "
-                                          "for the nginx config files as specified in the pyginx config file.")
 
     # parse command line arguments
     args = argument_parser.parse_args()
-
-    # output level
-    verbose: bool = args.verbose
-    quiet: bool = args.quiet
 
     # check if script is run as root
     if not args.mock and not os.geteuid() == 0:
         print("You must run this script as root", file=sys.stderr)
         exit(1)
 
-    if verbose:
+    # output arguments if verbose output
+    if args.verbose:
         print("Run with arguments: ")
         print('\n'.join(f'{k}={v}' for k, v in vars(args).items()))
         print()
@@ -316,13 +334,11 @@ if __name__ == '__main__':
                             lstrip_blocks=True,
                             trim_blocks=True)
 
-    # initialise variables
-    filename = rendered_template = path = template = ""
-    data: Optional[Union[HTTPData, StreamData]] = None
-
+    # handle different usages
     if args.usage == "http":
+        # create a new http config file
         list_info = f'{"http://" if args.no_ssl else "https://"}{args.domain} -> {args.forwardScheme}:// ( {" | ".join(args.upstreams)} )'
-        if not quiet:
+        if not args.quiet:
             print(f'Creating config for: {list_info}')
 
         filename = f"{args.label}.conf" if args.label else f"{args.domain}.conf"
@@ -340,8 +356,9 @@ if __name__ == '__main__':
                       args=args)
 
     elif args.usage == "stream":
+        # create a new stream config file
         list_info = f'0.0.0.0:{args.port} -> ( {" | ".join(args.upstreams)} )'
-        if not quiet:
+        if not args.quiet:
             print(f'Creating config for: {list_info}')
 
         filename = f"{args.label}.conf" if args.label else f"{args.port}.conf"
@@ -358,20 +375,20 @@ if __name__ == '__main__':
                       args=args)
 
     elif args.usage == "list":
-
-        list_config()
+        # lists all config files and extracts additional info if possible
+        files = config_files()
+        print("Configuration:")
+        for file in files:
+            with open(file) as f:
+                for line in f.readlines():
+                    if match := re.match(r'^# list_info: (?P<list_info>.*)$', line):
+                        print(f'{file} => {match.group("list_info")}')
+                    else:
+                        print(file)
 
     elif args.usage == "edit":
-        file = args.file if args.file.endswith(".conf") else args.file + ".conf"
-        for conf_file in config_files():
-            if re.match(rf'.*/{file}', conf_file):
-                edit_config_file(conf_file)
-                break
-        else:
-            print("File not found!", file=sys.stderr)
-            exit(4)
-
-
+        # opens the specified file and reloads nginx afterwards
+        edit_config_file(get_nginx_conf_file(args.file))
 
     else:
         exit(-1)
