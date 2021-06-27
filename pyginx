@@ -36,7 +36,8 @@ domain = lambda d: d if any([d == 'localhost',
 port = lambda p: p if p.isnumeric() and 1 <= int(p) <= 65535 \
     else wrong_argument(f'{p}: must be a positive integer between 1 and 65535')
 
-upstream = lambda u: u if domain(u.split(":", 1)[0]) and port(u.split(":", 1)[1]) else None
+upstream = lambda u: u if domain(u.split(":", 1)[0]) and port(u.split(":", 1)[1]) \
+    else None
 
 backend_name = lambda b: b if re.match(r'^[a-zA-z0-9_]+$', b) or b is None \
     else wrong_argument(f'{b}: str can only contain letters, number and underscores')
@@ -44,7 +45,8 @@ backend_name = lambda b: b if re.match(r'^[a-zA-z0-9_]+$', b) or b is None \
 forward_scheme = lambda s: s if s in ('http', 'https') \
     else wrong_argument(f'{s}: must be either http or https')
 
-label = lambda s: s if True else argparse.ArgumentTypeError(f'{s}: must be either http or https')
+label = lambda s: s if True \
+    else argparse.ArgumentTypeError(f'{s}: must be either http or https')
 
 ##
 # ARGUMENT PARSER

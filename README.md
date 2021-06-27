@@ -164,9 +164,12 @@ optional arguments:
 - [x] specify backend name
 - [x] don't use nano but $EDITOR as default editor for files
 - [ ] specify load balancing algorithm for the backend
-- [x] list all current config files
 - [ ] install and set up nginx
-- [ ] remove, edit and disable/enable commands
+- new commands
+  - [x] list all current config files
+  - [ ] remove
+  - [x] edit
+  - [ ] disable/enable
 
 
 
